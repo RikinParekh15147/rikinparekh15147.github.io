@@ -56,6 +56,7 @@
             top: 40px;
             background-color: #ffffff;
             border: 1px solid #e0e0e0;
+	    border-radius:5px;
             z-index: 1;
         }
 
@@ -132,24 +133,38 @@
             font-size: 14px;
             color: #777777;
         }
+	.resume-button {
+        background-color: #a9a6a6;
+        color: white;
+        padding: 8px 16px;
+        border-radius: 5px;
+        text-decoration: none;
+        font-size: 16px;
+        font-weight: 600;
+        transition: background 0.3s;
+    }
+
+    .resume-button:hover {
+        background-color: #555;
+    }
     </style>
 </head>
 <body>
 
     <header>
         <div class="title"> Rikin Parekh </div>
-        <div class="menu">
-            <button>
-                Menu
-            </button>
-            <div class="menu-content">
-		<a> Nothing to show</a>
-                <!-- <a href="#">Home</a>
-                <a href="#">About</a>
-                <a href="#">Services</a>
-                <a href="#">Contact</a> -->
-           </div>
-        </div>
+        <div class="header-buttons">
+        	<a href="/resume.pdf" target="_blank" class="resume-button">Resume</a>
+        	<div class="menu">
+            	<button>
+              		Menu
+            	</button>
+            	<div class="menu-content">
+                	<a> Nothing to show</a>
+            	</div>
+        	</div>
+    	</div>
+    </header>
     </header>
 
     <hr>

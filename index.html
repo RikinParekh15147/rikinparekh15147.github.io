@@ -147,6 +147,57 @@
     .resume-button:hover {
         //background-color: #555;
     }
+    @media (max-width: 768px) {
+    header {
+        flex-direction: column;
+        align-items: center;
+        text-align: center;
+        padding: 15px;
+    }
+
+    .header-buttons {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 10px;
+        margin-top: 10px;
+    }
+
+    .title {
+        font-size: 24px;
+    }
+
+    .menu-content {
+        right: auto;
+        left: 50%;
+        transform: translateX(-50%);
+        width: max-content;
+    }
+
+    .main {
+        font-size: 24px;
+        text-align: center;
+        padding: 20px;
+    }
+
+    .footer-content {
+        flex-direction: column;
+        align-items: center;
+        text-align: center;
+        gap: 10px;
+    }
+
+    .social-icons {
+        justify-content: center;
+    }
+
+    .resume-button {
+        display: block;
+        width: 100%;
+        text-align: center;
+    }
+}
+
     </style>
 </head>
 <body>

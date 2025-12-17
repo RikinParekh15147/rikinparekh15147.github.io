@@ -28,6 +28,9 @@ body {
     flex-direction: column;
 }
 
+:root {
+    --ui-border: 2px solid #e0e0e0;
+}
 
 /* ================= Loader ================= */
 #loader {
@@ -71,8 +74,11 @@ header {
     justify-content: space-between;
     align-items: center;
     padding: 20px 40px;
-    border-bottom: 2px solid #e0e0e0;
+    border-bottom: var(--ui-border);
 }
+
+
+
 
 .title {
     font-size: 28px;
@@ -161,19 +167,27 @@ a.button:hover {
 }
 footer {
     padding: 20px 40px;
-    border-top: 2px solid #e0e0e0;
+    border-top: var(--ui-border);
     display: flex;
     flex-direction: column;
     align-items: center;
     background-color: #f9f9f9;
 }
-
 .footer-content {
+    width: 100%;
+    max-width: 800px;
     display: flex;
     justify-content: space-between;
-    max-width: 800px;
     align-items: center;
 }
+
+
+.footer-right span {
+    font-size: 14px;
+    color: #777777;
+}
+
+
 
 .social-icons {
     display: flex;
@@ -255,7 +269,9 @@ footer {
 <!-- ===== Footer ===== -->
 <footer>
     <div class="footer-content">
-        <a href="mailto:rikin@rikinparekh.in">rikin@rikinparekh.in</a>
+        <div class="footer-left">
+            <a href="mailto:rikin@rikinparekh.in">rikin@rikinparekh.in</a>
+        </div>
 
         <div class="social-icons">
             <a href="https://www.instagram.com/rkn_prkh" target="_blank">
@@ -271,9 +287,10 @@ footer {
     </div>
 
     <div class="footer-right">
-        © 2024 All Rights Reserved.
+        <span>&copy; 2024 All Rights Reserved.</span>
     </div>
 </footer>
+
 
 <!-- ===== Script ===== -->
 <script>

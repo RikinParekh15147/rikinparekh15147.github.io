@@ -1,0 +1,297 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Under Construction</title>
+
+<link rel="icon" type="image/png" href="/images/rikinparekhin.png">
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@600;700&display=swap" rel="stylesheet">
+
+<style>
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+body {
+    font-family: 'Montserrat', sans-serif;
+    background-color: #ffffff;
+    color: #333333;
+    min-height: 100vh;
+
+    display: flex;
+    flex-direction: column;
+}
+
+
+/* ================= Loader ================= */
+#loader {
+    position: fixed;
+    inset: 0;
+    background: #ffffff;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    z-index: 9999;
+}
+
+#loader-text {
+    font-size: 42px;
+    font-weight: 700;
+    position: absolute;
+    white-space: nowrap;
+    color: #333;
+    transition: all 1s ease-in-out;
+}
+
+/* Final navbar position */
+#loader-text {
+    transition:
+        top 1s ease,
+        left 1s ease,
+        font-size 1s ease,
+        transform 1s ease;
+}
+
+
+#loader.fade-out {
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.6s ease;
+}
+
+/* ================= Header ================= */
+header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 20px 40px;
+    border-bottom: 2px solid #e0e0e0;
+}
+
+.title {
+    font-size: 28px;
+    font-weight: 700;
+}
+
+.header-buttons {
+    display: flex;
+    gap: 20px;
+    align-items: center;
+}
+
+.resume-button {
+    font-size: 16px;
+    font-weight: 600;
+    text-decoration: none;
+    color: inherit;
+}
+
+/* ================= Menu ================= */
+.menu {
+    position: relative;
+}
+
+.menu button {
+    background: none;
+    border: none;
+    font-size: 18px;
+    cursor: pointer;
+}
+
+.menu-content {
+    display: none;
+    position: absolute;
+    right: 0;
+    top: 40px;
+    background-color: #ffffff;
+    border: 1px solid #e0e0e0;
+    border-radius: 5px;
+}
+
+.menu-content a {
+    padding: 12px 16px;
+    display: block;
+}
+
+.menu:hover .menu-content {
+    display: block;
+}
+
+/* ================= Main ================= */
+.main {
+    flex: 1;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    font-size: 36px;
+    font-weight: 700;
+    text-align: center;
+    padding: 40px;
+}
+
+
+/* ================= Footer ================= */
+footer {
+    padding: 20px 40px;
+    border-top: 2px solid #e0e0e0;
+    background-color: #f9f9f9;
+}
+
+.footer-content {
+    display: flex;
+    justify-content: space-between;
+    max-width: 800px;
+    margin: auto;
+    align-items: center;
+}
+
+.social-icons {
+    display: flex;
+    gap: 15px;
+}
+
+.social-icons img {
+    width: 24px;
+    height: 24px;
+    transition: 0.3s;
+}
+
+.social-icons img:hover {
+    opacity: 0.7;
+}
+
+.footer-right {
+    text-align: center;
+    margin-top: 10px;
+    font-size: 14px;
+    color: #777;
+}
+
+/* ================= Mobile ================= */
+@media (max-width: 768px) {
+    header {
+        flex-direction: column;
+        gap: 10px;
+        padding: 15px;
+    }
+
+    #loader-text.move-to-navbar {
+        top: 20px;
+        left: 50%;
+        transform: translateX(-50%);
+    }
+
+    .main {
+        font-size: 24px;
+        padding: 20px;
+    }
+
+    .footer-content {
+        flex-direction: column;
+        gap: 10px;
+    }
+}
+</style>
+</head>
+
+<body>
+
+<!-- ===== Loader ===== -->
+<div id="loader">
+    <div id="loader-text"></div>
+</div>
+
+<!-- ===== Header ===== -->
+<header>
+   <div class="title" id="navbar-title">Rikin Parekh</div>
+
+    <div class="header-buttons">
+        <a href="/resume" class="resume-button">Resume</a>
+
+        <div class="menu">
+            <button>Menu</button>
+            <div class="menu-content">
+                <a>Nothing to show</a>
+            </div>
+        </div>
+    </div>
+</header>
+
+<!-- ===== Main ===== -->
+<div class="main">
+    Site Under Construction
+</div>
+
+<!-- ===== Footer ===== -->
+<footer>
+    <div class="footer-content">
+        <a href="mailto:rikin@rikinparekh.in">rikin@rikinparekh.in</a>
+
+        <div class="social-icons">
+            <a href="https://www.instagram.com/rkn_prkh" target="_blank">
+                <img src="/images/instagram.png" alt="Instagram">
+            </a>
+            <a href="https://github.com/rikinparekh15147" target="_blank">
+                <img src="/images/github.png" alt="GitHub">
+            </a>
+            <a href="https://www.linkedin.com/in/parekh-rikin" target="_blank">
+                <img src="/images/linkedin.png" alt="LinkedIn">
+            </a>
+        </div>
+    </div>
+
+    <div class="footer-right">
+        © 2024 All Rights Reserved.
+    </div>
+</footer>
+
+<!-- ===== Script ===== -->
+<script>
+const text = "Rikin Parekh";
+const loaderText = document.getElementById("loader-text");
+const navbarTitle = document.getElementById("navbar-title");
+const loader = document.getElementById("loader");
+
+let index = 0;
+
+// Start centered
+loaderText.style.top = "50%";
+loaderText.style.left = "50%";
+loaderText.style.transform = "translate(-50%, -50%)";
+
+function typeEffect() {
+    if (index < text.length) {
+        loaderText.textContent += text[index];
+        index++;
+        setTimeout(typeEffect, 120);
+    } else {
+        setTimeout(moveToNavbar, 400);
+    }
+}
+
+function moveToNavbar() {
+    const rect = navbarTitle.getBoundingClientRect();
+
+    loaderText.style.top = rect.top + rect.height / 2 + "px";
+    loaderText.style.left = rect.left + "px";
+    loaderText.style.transform = "translate(0, -50%)";
+    loaderText.style.fontSize = window.getComputedStyle(navbarTitle).fontSize;
+
+    // Fade out loader after settling
+    setTimeout(() => {
+        loader.classList.add("fade-out");
+    }, 1000);
+}
+
+window.onload = typeEffect;
+</script>
+
+
+</body>
+</html>

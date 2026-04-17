@@ -1,0 +1,1454 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Virtual Networking in Cloud</title>
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@700;800&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+/* ═══════════════════════════════
+   THEME VARIABLES
+═══════════════════════════════ */
+:root {
+  --bg:          #f0f4ff;
+  --surface:     #ffffff;
+  --border:      #e2e8f0;
+  --blue:        #2563eb;
+  --blue-l:      #60a5fa;
+  --blue-pale:   #dbeafe;
+  --blue-ghost:  #eff6ff;
+  --green:       #16a34a;
+  --green-pale:  #dcfce7;
+  --red:         #dc2626;
+  --red-pale:    #fee2e2;
+  --amber:       #d97706;
+  --amber-pale:  #fef3c7;
+  --text:        #1e293b;
+  --muted:       #64748b;
+  --faint:       #94a3b8;
+  --slate:       #475569;
+
+  --f-d: 'Syne', sans-serif;
+  --f-b: 'IBM Plex Sans', sans-serif;
+  --f-m: 'IBM Plex Mono', monospace;
+
+  --title:  clamp(2rem,   5.5vw, 4.5rem);
+  --h2:     clamp(1.2rem, 2.8vw, 2.1rem);
+  --h3:     clamp(1rem,   2vw,   1.45rem);
+  --body:   clamp(0.75rem,1.35vw,1rem);
+  --small:  clamp(0.62rem,0.95vw,0.8rem);
+
+  --pad:  clamp(1.5rem, 4vw,  3.5rem);
+  --gap:  clamp(0.75rem,1.8vw,1.5rem);
+  --egap: clamp(0.4rem, 0.8vw,0.7rem);
+
+  --ease: cubic-bezier(0.16, 1, 0.3, 1);
+  --dur: 0.65s;
+  --r: 12px;
+  --sh: 0 2px 16px rgba(30,41,59,.08);
+  --sh2: 0 6px 36px rgba(30,41,59,.12);
+}
+
+*, *::before, *::after { margin:0; padding:0; box-sizing:border-box; }
+
+/* ═══════════════════════════════
+   VIEWPORT BASE (mandatory)
+═══════════════════════════════ */
+html, body { height:100%; overflow-x:hidden; }
+html { scroll-snap-type:y mandatory; scroll-behavior:smooth; }
+
+.slide {
+  width:100vw; height:100vh; height:100dvh;
+  overflow:hidden; scroll-snap-align:start;
+  position:relative; background:var(--bg);
+  font-family:var(--f-b); color:var(--text);
+  display:flex; flex-direction:column;
+}
+
+/* ═══════════════════════════════
+   ANIMATIONS
+═══════════════════════════════ */
+.rv {
+  opacity:0; transform:translateY(22px);
+  transition:opacity var(--dur) var(--ease), transform var(--dur) var(--ease);
+}
+.slide.visible .rv { opacity:1; transform:translateY(0); }
+.rv:nth-child(1){transition-delay:.05s}
+.rv:nth-child(2){transition-delay:.15s}
+.rv:nth-child(3){transition-delay:.25s}
+.rv:nth-child(4){transition-delay:.35s}
+.rv:nth-child(5){transition-delay:.45s}
+.rv:nth-child(6){transition-delay:.55s}
+.rv:nth-child(7){transition-delay:.65s}
+
+.rv-l {
+  opacity:0; transform:translateX(-22px);
+  transition:opacity var(--dur) var(--ease), transform var(--dur) var(--ease);
+}
+.slide.visible .rv-l { opacity:1; transform:translateX(0); }
+.rv-l:nth-child(1){transition-delay:.1s}
+.rv-l:nth-child(2){transition-delay:.2s}
+.rv-l:nth-child(3){transition-delay:.3s}
+.rv-l:nth-child(4){transition-delay:.4s}
+.rv-l:nth-child(5){transition-delay:.5s}
+.rv-l:nth-child(6){transition-delay:.6s}
+
+/* ═══════════════════════════════
+   PROGRESS + NAV
+═══════════════════════════════ */
+#prog {
+  position:fixed; top:0; left:0; height:3px;
+  background:var(--blue); width:0%; z-index:1000;
+  transition:width .3s ease;
+}
+#nav {
+  position:fixed; right:clamp(.75rem,2vw,1.5rem); top:50%;
+  transform:translateY(-50%); display:flex; flex-direction:column;
+  gap:6px; z-index:1000;
+}
+.nd {
+  width:6px; height:6px; border-radius:50%;
+  background:var(--faint); cursor:pointer;
+  transition:all .3s ease; border:none;
+}
+.nd.active { background:var(--blue); transform:scale(1.55); }
+
+/* ═══════════════════════════════
+   SHARED ELEMENTS
+═══════════════════════════════ */
+.eyebrow {
+  font-family:var(--f-m); font-size:var(--small);
+  color:var(--blue); text-transform:uppercase; letter-spacing:.08em;
+  display:flex; align-items:center; gap:.5em;
+}
+.eyebrow::before { content:''; display:block; width:18px; height:2px; background:var(--blue); }
+
+.s-num {
+  position:absolute; bottom:clamp(.75rem,2vh,1.25rem);
+  right:var(--pad); font-family:var(--f-m); font-size:var(--small); color:var(--faint);
+}
+
+.card {
+  background:var(--surface); border-radius:var(--r);
+  border:1px solid var(--border); box-shadow:var(--sh);
+  padding:clamp(.75rem,1.4vw,1.25rem);
+}
+
+.tag {
+  display:inline-flex; align-items:center;
+  padding:.2em .65em; border-radius:999px;
+  font-family:var(--f-m); font-size:var(--small); font-weight:500;
+}
+.tb { background:var(--blue-pale); color:var(--blue); }
+.tg { background:var(--green-pale); color:var(--green); }
+.tr { background:var(--red-pale); color:var(--red); }
+.ta { background:var(--amber-pale); color:var(--amber); }
+
+/* Responsive breakpoints */
+@media(max-height:700px){
+  :root{--pad:clamp(.75rem,2.5vw,2rem);--gap:clamp(.5rem,1.3vw,.9rem);--title:clamp(1.5rem,4vw,3rem);--h2:clamp(1rem,2.4vw,1.7rem);}
+}
+@media(max-height:600px){
+  :root{--pad:clamp(.5rem,2vw,1.25rem);--gap:clamp(.3rem,1vw,.65rem);--title:clamp(1.2rem,3.5vw,2.3rem);--body:clamp(.65rem,1.2vw,.88rem);}
+  .nd,.s-num{display:none;}
+}
+@media(max-height:500px){
+  :root{--pad:clamp(.4rem,1.5vw,.875rem);--title:clamp(1rem,3vw,1.75rem);}
+}
+@media(prefers-reduced-motion:reduce){
+  *,*::before,*::after{animation-duration:.01ms!important;transition-duration:.2s!important;}
+  html{scroll-behavior:auto;}
+}
+
+/* ═══════════════════════════════════════════════════════════
+   SLIDE 1 — TITLE
+═══════════════════════════════════════════════════════════ */
+#s1 {
+  background: linear-gradient(135deg, #eef2ff 0%, #e0e7ff 40%, #f0fdf4 100%);
+}
+#s1 .inner {
+  display:grid; grid-template-columns:1fr 1fr;
+  height:100%; align-items:center; padding:var(--pad);
+  gap:var(--gap); position:relative; z-index:2;
+}
+#s1 .lft { display:flex; flex-direction:column; gap:var(--gap); }
+.big-title {
+  font-family:var(--f-d); font-size:var(--title); font-weight:800;
+  line-height:1.05; color:var(--text);
+}
+.big-title em { font-style:normal; color:var(--blue); }
+.sub-title { font-size:var(--body); color:var(--muted); max-width:380px; }
+.tags { display:flex; gap:.45rem; flex-wrap:wrap; margin-top:.15rem; }
+#s1 canvas {
+  position:absolute; right:0; top:0; width:50%; height:100%; z-index:1;
+}
+
+/* ═══════════════════════════════════════════════════════════
+   SLIDE 2 — WHY VIRTUAL NETWORKS
+═══════════════════════════════════════════════════════════ */
+#s2 .inner {
+  display:grid; grid-template-columns:1fr 1fr;
+  height:100%; align-items:start; padding:var(--pad);
+  padding-top:clamp(1.5rem,4vh,3rem); gap:clamp(1rem,3vw,2.5rem);
+}
+.s2-header {
+  font-family:var(--f-d); font-size:var(--h2); font-weight:700;
+  line-height:1.15; margin-bottom:.6em;
+}
+.prob-item {
+  display:flex; align-items:center; gap:.75rem;
+  padding:clamp(.5rem,.9vw,.8rem) clamp(.75rem,1.3vw,1.1rem);
+  background:var(--surface); border-radius:var(--r);
+  border:1px solid var(--border); font-size:var(--body); font-weight:500;
+  margin-bottom:var(--egap);
+}
+.prob-item .ico { font-size:clamp(1.1rem,2vw,1.6rem); flex-shrink:0; }
+.sol-grid {
+  display:grid; grid-template-columns:1fr 1fr;
+  gap:var(--egap); margin-top:.5rem;
+}
+.sol-card {
+  display:flex; flex-direction:column; align-items:center; text-align:center;
+  gap:.35rem; padding:clamp(.6rem,1.2vw,1rem);
+  background:var(--blue-ghost); border-radius:var(--r);
+  border:1px solid rgba(37,99,235,.15);
+}
+.sol-card .ico { font-size:clamp(1.4rem,2.5vw,2.1rem); }
+.sol-card .lbl {
+  font-family:var(--f-d); font-weight:700;
+  font-size:var(--body); color:var(--blue);
+}
+.sol-card .dsc { font-size:var(--small); color:var(--muted); }
+
+/* ═══════════════════════════════════════════════════════════
+   SLIDE 3 — WHAT IS VNET/VPC
+═══════════════════════════════════════════════════════════ */
+#s3 .inner {
+  display:grid; grid-template-columns:1fr 1.3fr;
+  height:100%; align-items:center; padding:var(--pad); gap:var(--gap);
+}
+#s3 .lft { display:flex; flex-direction:column; gap:var(--gap); }
+.def-list { display:flex; flex-direction:column; gap:var(--egap); margin-top:.35rem; }
+.def-item {
+  display:flex; gap:.6rem; align-items:flex-start;
+  font-size:var(--body); padding:.4rem .6rem;
+  border-left:3px solid var(--blue); background:var(--blue-ghost); border-radius:0 8px 8px 0;
+}
+.def-item strong { color:var(--blue); font-family:var(--f-m); font-size:var(--small); min-width:55px; }
+#s3 svg { width:100%; max-height:min(55vh,400px); }
+
+/* ═══════════════════════════════════════════════════════════
+   SLIDE 4 — COMPONENTS CORE
+═══════════════════════════════════════════════════════════ */
+#s4 .inner {
+  display:grid; grid-template-columns:1fr 1.2fr;
+  height:100%; align-items:center; padding:var(--pad); gap:var(--gap);
+}
+.comp-list { display:flex; flex-direction:column; gap:var(--egap); }
+.ci {
+  display:flex; align-items:flex-start; gap:.6rem;
+  padding:clamp(.4rem,.7vw,.65rem) clamp(.6rem,1vw,.9rem);
+  background:var(--surface); border-radius:8px;
+  border-left:3px solid var(--blue);
+}
+.ci .cn {
+  font-family:var(--f-m); font-size:var(--small); font-weight:500;
+  color:var(--blue); white-space:nowrap; min-width:clamp(100px,9vw,130px);
+}
+.ci .cd { font-size:var(--small); color:var(--muted); line-height:1.4; }
+#s4 svg { width:100%; max-height:min(52vh,380px); }
+
+/* ═══════════════════════════════════════════════════════════
+   SLIDE 5 — COMPONENTS SECURITY
+═══════════════════════════════════════════════════════════ */
+#s5 .inner {
+  display:grid; grid-template-columns:1.2fr 1fr;
+  height:100%; align-items:center; padding:var(--pad); gap:var(--gap);
+}
+#s5 svg { width:100%; max-height:min(52vh,380px); }
+
+/* ═══════════════════════════════════════════════════════════
+   SLIDE 6 — SDN
+═══════════════════════════════════════════════════════════ */
+#s6 .inner {
+  display:grid; grid-template-columns:1fr 1.4fr;
+  height:100%; align-items:center; padding:var(--pad); gap:var(--gap);
+}
+#s6 .lft { display:flex; flex-direction:column; gap:var(--gap); }
+.fact-item {
+  display:flex; gap:.6rem; align-items:flex-start;
+  font-size:var(--body); padding:.5rem .75rem;
+  background:var(--surface); border-radius:8px; border:1px solid var(--border);
+}
+.fact-item .dot { width:8px; height:8px; border-radius:50%; background:var(--blue); margin-top:.35em; flex-shrink:0; }
+#s6 svg { width:100%; max-height:min(55vh,410px); }
+
+/* ═══════════════════════════════════════════════════════════
+   SLIDE 7 — OVN
+═══════════════════════════════════════════════════════════ */
+#s7 .inner {
+  display:grid; grid-template-columns:1fr 1.3fr;
+  height:100%; align-items:center; padding:var(--pad); gap:var(--gap);
+}
+#s7 svg { width:100%; max-height:min(56vh,420px); }
+
+/* ═══════════════════════════════════════════════════════════
+   SLIDE 8 — OVS
+═══════════════════════════════════════════════════════════ */
+#s8 .inner {
+  display:grid; grid-template-columns:1fr 1.4fr;
+  height:100%; align-items:center; padding:var(--pad); gap:var(--gap);
+}
+#s8 svg { width:100%; max-height:min(55vh,400px); }
+
+/* ═══════════════════════════════════════════════════════════
+   SLIDE 9 — OPENSTACK & KUBERNETES
+═══════════════════════════════════════════════════════════ */
+#s9 .inner {
+  display:flex; flex-direction:column; justify-content:center;
+  height:100%; padding:var(--pad); gap:var(--gap);
+}
+.two-col { display:grid; grid-template-columns:1fr 1fr; gap:var(--gap); }
+.big-card {
+  background:var(--surface); border-radius:var(--r);
+  border:1px solid var(--border); box-shadow:var(--sh);
+  padding:clamp(1rem,2vw,1.75rem);
+  display:flex; flex-direction:column; gap:var(--egap);
+}
+.big-card .head {
+  display:flex; align-items:center; gap:.75rem;
+  margin-bottom:.3rem;
+}
+.big-card .head .ico { font-size:clamp(1.5rem,2.5vw,2rem); }
+.big-card .head .name { font-family:var(--f-d); font-weight:700; font-size:var(--h3); }
+.feat-row {
+  display:flex; align-items:center; gap:.5rem;
+  font-size:var(--body); color:var(--muted); padding:.3rem 0;
+  border-bottom:1px solid var(--border);
+}
+.feat-row:last-child { border-bottom:none; }
+.feat-row::before { content:'→'; color:var(--blue); font-size:.8em; flex-shrink:0; }
+
+/* ═══════════════════════════════════════════════════════════
+   SLIDE 10 — RELATIONSHIP CHAIN
+═══════════════════════════════════════════════════════════ */
+#s10 .inner {
+  display:flex; flex-direction:column; justify-content:center; align-items:center;
+  height:100%; padding:var(--pad); gap:var(--gap);
+}
+#s10 svg { width:100%; max-width:900px; max-height:min(45vh,330px); }
+
+/* ═══════════════════════════════════════════════════════════
+   SLIDE 11 — COMPARISON
+═══════════════════════════════════════════════════════════ */
+#s11 .inner {
+  display:flex; flex-direction:column; justify-content:center;
+  height:100%; padding:var(--pad); gap:var(--gap);
+}
+.three-col { display:grid; grid-template-columns:repeat(3,1fr); gap:var(--gap); }
+.cmp-card {
+  background:var(--surface); border-radius:var(--r);
+  border:1px solid var(--border); box-shadow:var(--sh);
+  overflow:hidden;
+}
+.cmp-head {
+  padding:clamp(.65rem,1.2vw,1rem) clamp(.75rem,1.4vw,1.25rem);
+  font-family:var(--f-d); font-weight:700; font-size:var(--h3);
+}
+.cmp-rows { display:flex; flex-direction:column; }
+.cmp-row {
+  display:flex; gap:.5rem;
+  padding:clamp(.4rem,.8vw,.65rem) clamp(.75rem,1.4vw,1.25rem);
+  border-top:1px solid var(--border);
+  font-size:var(--body);
+}
+.cmp-row .rl { font-size:var(--small); color:var(--muted); min-width:60px; }
+.cmp-row .rv { font-weight:600; }
+
+/* ═══════════════════════════════════════════════════════════
+   SLIDE 12 — AWS VPC ARCHITECTURE
+═══════════════════════════════════════════════════════════ */
+#s12 .inner {
+  display:flex; flex-direction:column; justify-content:center;
+  height:100%; padding:var(--pad); gap:var(--gap);
+}
+#s12 .title-row {
+  display:flex; align-items:baseline; gap:.75rem;
+}
+#s12 svg { width:100%; flex:1; max-height:min(70vh,500px); }
+
+/* ═══════════════════════════════════════════════════════════
+   SLIDE 13 — DATA FLOW
+═══════════════════════════════════════════════════════════ */
+#s13 .inner {
+  display:grid; grid-template-columns:1fr 1.5fr;
+  height:100%; align-items:center; padding:var(--pad); gap:var(--gap);
+}
+#s13 svg { width:100%; max-height:min(55vh,400px); }
+
+/* Flow animation */
+.flow-dot {
+  animation: flow-move 2.5s ease-in-out infinite;
+}
+@keyframes flow-move {
+  0%   { opacity:0; transform:translateX(0); }
+  20%  { opacity:1; }
+  80%  { opacity:1; }
+  100% { opacity:0; transform:translateX(520px); }
+}
+.flow-dot:nth-child(2){animation-delay:.6s}
+.flow-dot:nth-child(3){animation-delay:1.2s}
+
+/* ═══════════════════════════════════════════════════════════
+   SLIDE 14 — BEST PRACTICES
+═══════════════════════════════════════════════════════════ */
+#s14 .inner {
+  display:flex; flex-direction:column; justify-content:center;
+  height:100%; padding:var(--pad); gap:var(--gap);
+}
+.bp-grid { display:grid; grid-template-columns:repeat(2,1fr); gap:var(--gap); }
+.bp-card {
+  background:var(--surface); border-radius:var(--r);
+  border:1px solid var(--border); box-shadow:var(--sh);
+  padding:clamp(.75rem,1.5vw,1.25rem);
+  display:flex; align-items:flex-start; gap:.85rem;
+}
+.bp-card .ico { font-size:clamp(1.6rem,2.8vw,2.2rem); flex-shrink:0; }
+.bp-card .text .ttl { font-family:var(--f-d); font-weight:700; font-size:var(--h3); margin-bottom:.25em; }
+.bp-card .text .dsc { font-size:var(--small); color:var(--muted); line-height:1.5; }
+
+/* ═══════════════════════════════════════════════════════════
+   SLIDE 15 — CONCLUSION
+═══════════════════════════════════════════════════════════ */
+#s15 {
+  background:linear-gradient(135deg, #eef2ff 0%, #e0e7ff 50%, #f0fdf4 100%);
+}
+#s15 .inner {
+  display:flex; flex-direction:column; justify-content:center; align-items:center;
+  text-align:center; height:100%; padding:var(--pad); gap:var(--gap);
+}
+.concl-grid { display:grid; grid-template-columns:repeat(3,1fr); gap:var(--gap); width:100%; max-width:800px; }
+.concl-card {
+  background:rgba(255,255,255,.8); border-radius:var(--r);
+  border:1px solid rgba(37,99,235,.15); box-shadow:var(--sh);
+  padding:clamp(.85rem,1.6vw,1.4rem);
+  display:flex; flex-direction:column; align-items:center; text-align:center; gap:.5rem;
+}
+.concl-card .ico { font-size:clamp(1.8rem,3vw,2.5rem); }
+.concl-card .nm { font-family:var(--f-d); font-weight:700; font-size:var(--h3); color:var(--blue); }
+.concl-card .dsc { font-size:var(--small); color:var(--muted); line-height:1.5; }
+</style>
+</head>
+<body>
+
+<div id="prog"></div>
+<nav id="nav"></nav>
+
+<!-- ════════════════════════════════════════════
+     SLIDE 1 · TITLE
+════════════════════════════════════════════ -->
+<section class="slide" id="s1">
+  <canvas id="netCanvas"></canvas>
+  <div class="inner">
+    <div class="lft">
+      <div class="eyebrow rv">Cloud Infrastructure Series</div>
+      <h1 class="big-title rv">Virtual <em>Networking</em><br>in Cloud</h1>
+      <p class="sub-title rv">VNet · SDN · OVN · AWS VPC</p>
+      <div class="tags rv">
+        <span class="tag tb">VPC</span>
+        <span class="tag tb">SDN</span>
+        <span class="tag tg">OVN / OVS</span>
+        <span class="tag ta">AWS</span>
+      </div>
+    </div>
+  </div>
+  <div class="s-num">01 / 15</div>
+</section>
+
+<!-- ════════════════════════════════════════════
+     SLIDE 2 · WHY VIRTUAL NETWORKS
+════════════════════════════════════════════ -->
+<section class="slide" id="s2">
+  <div class="inner">
+    <!-- Left: Problems -->
+    <div>
+      <div class="eyebrow rv">The Problem</div>
+      <h2 class="s2-header rv">Why do we need<br>virtual networks?</h2>
+      <div class="rv-l">
+        <div class="prob-item"><span class="ico">🌐</span> Direct internet exposure is <strong>&nbsp;insecure</strong></div>
+      </div>
+      <div class="rv-l">
+        <div class="prob-item"><span class="ico">🔧</span> Physical networking is <strong>&nbsp;complex</strong></div>
+      </div>
+      <div class="rv-l">
+        <div class="prob-item"><span class="ico">📦</span> Apps have many components — web, app, DB</div>
+      </div>
+      <div class="rv-l">
+        <div class="prob-item"><span class="ico">📉</span> Hardware doesn't <strong>&nbsp;scale</strong> with demand</div>
+      </div>
+    </div>
+    <!-- Right: Solutions -->
+    <div>
+      <div class="eyebrow rv">The Solution</div>
+      <h2 class="s2-header rv" style="color:var(--blue)">Virtual Networks<br>provide →</h2>
+      <div class="sol-grid rv">
+        <div class="sol-card">
+          <span class="ico">🔒</span>
+          <span class="lbl">Isolation</span>
+          <span class="dsc">Resources separated by network boundaries</span>
+        </div>
+        <div class="sol-card">
+          <span class="ico">🛡️</span>
+          <span class="lbl">Security</span>
+          <span class="dsc">Layered firewalls & access control</span>
+        </div>
+        <div class="sol-card">
+          <span class="ico">📈</span>
+          <span class="lbl">Scalability</span>
+          <span class="dsc">Add resources without rewiring</span>
+        </div>
+        <div class="sol-card">
+          <span class="ico">⚙️</span>
+          <span class="lbl">Flexibility</span>
+          <span class="dsc">Software-defined control</span>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div class="s-num">02 / 15</div>
+</section>
+
+<!-- ════════════════════════════════════════════
+     SLIDE 3 · WHAT IS VNET / VPC
+════════════════════════════════════════════ -->
+<section class="slide" id="s3">
+  <div class="inner">
+    <div class="lft">
+      <div class="eyebrow rv">Core Concept</div>
+      <h2 class="rv" style="font-family:var(--f-d);font-size:var(--h2);font-weight:700;line-height:1.15">What is a<br>Virtual Network?</h2>
+      <div class="def-list">
+        <div class="def-item rv"><strong>What</strong> Logically isolated private network inside a cloud</div>
+        <div class="def-item rv"><strong>Like</strong> A LAN — but defined entirely in software</div>
+        <div class="def-item rv"><strong>AWS</strong> calls it VPC — Virtual Private Cloud</div>
+        <div class="def-item rv"><strong>Azure</strong> calls it VNet — Virtual Network</div>
+      </div>
+    </div>
+    <!-- SVG: Cloud containing VPC -->
+    <svg viewBox="0 0 400 300" fill="none" xmlns="http://www.w3.org/2000/svg" class="rv">
+      <!-- Internet cloud -->
+      <ellipse cx="200" cy="42" rx="130" ry="32" fill="#e0e7ff" stroke="#6366f1" stroke-width="1.5"/>
+      <text x="200" y="47" text-anchor="middle" font-family="IBM Plex Sans" font-size="13" fill="#4338ca" font-weight="600">🌐 Internet</text>
+      <!-- Arrow down -->
+      <line x1="200" y1="74" x2="200" y2="94" stroke="#94a3b8" stroke-width="2" stroke-dasharray="4,3"/>
+      <polygon points="194,92 206,92 200,100" fill="#94a3b8"/>
+      <!-- VPC Box -->
+      <rect x="30" y="104" width="340" height="176" rx="10" fill="#eff6ff" stroke="#2563eb" stroke-width="2" stroke-dasharray="7,4"/>
+      <text x="48" y="124" font-family="IBM Plex Mono" font-size="11" fill="#2563eb" font-weight="500">VPC / VNet  ·  10.0.0.0/16</text>
+      <!-- Lock icon -->
+      <rect x="342" y="108" width="20" height="16" rx="3" fill="#2563eb"/>
+      <path d="M347 108 Q347 101 352 101 Q357 101 357 108" stroke="#2563eb" stroke-width="2.5" fill="none"/>
+      <circle cx="352" cy="116" r="2" fill="white"/>
+
+      <!-- Public Subnet -->
+      <rect x="48" y="136" width="140" height="120" rx="8" fill="#dbeafe" stroke="#3b82f6" stroke-width="1.5"/>
+      <text x="118" y="155" text-anchor="middle" font-family="IBM Plex Mono" font-size="10" fill="#1d4ed8">PUBLIC SUBNET</text>
+      <!-- EC2 icon -->
+      <rect x="80" y="168" width="40" height="34" rx="5" fill="#2563eb"/>
+      <rect x="84" y="173" width="32" height="4" rx="2" fill="white" opacity=".8"/>
+      <rect x="84" y="180" width="26" height="3" rx="1.5" fill="white" opacity=".5"/>
+      <rect x="84" y="186" width="20" height="3" rx="1.5" fill="white" opacity=".5"/>
+      <text x="100" y="218" text-anchor="middle" font-family="IBM Plex Sans" font-size="11" fill="#1d4ed8" font-weight="600">EC2</text>
+
+      <!-- Private Subnet -->
+      <rect x="210" y="136" width="140" height="120" rx="8" fill="#dcfce7" stroke="#16a34a" stroke-width="1.5"/>
+      <text x="280" y="155" text-anchor="middle" font-family="IBM Plex Mono" font-size="10" fill="#15803d">PRIVATE SUBNET</text>
+      <!-- DB icon -->
+      <ellipse cx="280" cy="178" rx="22" ry="8" fill="#16a34a"/>
+      <rect x="258" y="178" width="44" height="22" fill="#16a34a"/>
+      <ellipse cx="280" cy="200" rx="22" ry="8" fill="#15803d"/>
+      <ellipse cx="280" cy="188" rx="22" ry="8" fill="#22c55e" opacity=".6"/>
+      <text x="280" y="220" text-anchor="middle" font-family="IBM Plex Sans" font-size="11" fill="#15803d" font-weight="600">RDS</text>
+    </svg>
+  </div>
+  <div class="s-num">03 / 15</div>
+</section>
+
+<!-- ════════════════════════════════════════════
+     SLIDE 4 · COMPONENTS — CORE INFRA
+════════════════════════════════════════════ -->
+<section class="slide" id="s4">
+  <div class="inner">
+    <div>
+      <div class="eyebrow rv">VPC Anatomy</div>
+      <h2 class="rv" style="font-family:var(--f-d);font-size:var(--h2);font-weight:700;margin-bottom:.6em">Core<br>Components</h2>
+      <div class="comp-list">
+        <div class="ci rv-l"><span class="cn">CIDR Block</span><span class="cd">Defines entire IP address range of the VPC</span></div>
+        <div class="ci rv-l"><span class="cn">Subnets</span><span class="cd">Public (internet-facing) and private segments</span></div>
+        <div class="ci rv-l"><span class="cn">Route Tables</span><span class="cd">Rules that direct traffic between subnets & outside</span></div>
+        <div class="ci rv-l"><span class="cn">IGW</span><span class="cd">Internet Gateway — door to the public internet</span></div>
+        <div class="ci rv-l"><span class="cn">NAT Gateway</span><span class="cd">Private instances reach internet, stay unreachable</span></div>
+      </div>
+    </div>
+    <!-- VPC architecture SVG -->
+    <svg viewBox="0 0 360 300" fill="none" xmlns="http://www.w3.org/2000/svg" class="rv">
+      <!-- Internet -->
+      <ellipse cx="180" cy="22" rx="80" ry="18" fill="#e0e7ff" stroke="#6366f1" stroke-width="1.5"/>
+      <text x="180" y="27" text-anchor="middle" font-family="IBM Plex Sans" font-size="11" fill="#4338ca" font-weight="600">Internet</text>
+      <!-- IGW -->
+      <rect x="140" y="50" width="80" height="24" rx="6" fill="#2563eb"/>
+      <text x="180" y="66" text-anchor="middle" font-family="IBM Plex Mono" font-size="10" fill="white" font-weight="500">IGW</text>
+      <line x1="180" y1="40" x2="180" y2="50" stroke="#2563eb" stroke-width="2"/>
+      <!-- VPC border -->
+      <rect x="16" y="84" width="328" height="204" rx="10" fill="none" stroke="#2563eb" stroke-width="1.5" stroke-dasharray="6,4"/>
+      <text x="28" y="100" font-family="IBM Plex Mono" font-size="9.5" fill="#2563eb">VPC 10.0.0.0/16</text>
+      <!-- Public subnet -->
+      <rect x="28" y="108" width="140" height="162" rx="8" fill="#dbeafe" stroke="#3b82f6" stroke-width="1.2"/>
+      <text x="98" y="124" text-anchor="middle" font-family="IBM Plex Mono" font-size="9" fill="#1d4ed8">PUBLIC</text>
+      <!-- EC2 -->
+      <rect x="60" y="132" width="76" height="36" rx="6" fill="#2563eb"/>
+      <text x="98" y="154" text-anchor="middle" font-family="IBM Plex Sans" font-size="11" fill="white" font-weight="600">EC2</text>
+      <!-- Route table public -->
+      <rect x="40" y="178" width="116" height="24" rx="5" fill="white" stroke="#93c5fd" stroke-width="1"/>
+      <text x="98" y="194" text-anchor="middle" font-family="IBM Plex Mono" font-size="8.5" fill="#1d4ed8">Route: 0.0.0.0/0 → IGW</text>
+      <!-- NAT GW -->
+      <rect x="52" y="214" width="92" height="22" rx="5" fill="#a78bfa"/>
+      <text x="98" y="229" text-anchor="middle" font-family="IBM Plex Mono" font-size="9" fill="white">NAT Gateway</text>
+      <!-- Private subnet -->
+      <rect x="192" y="108" width="140" height="162" rx="8" fill="#dcfce7" stroke="#16a34a" stroke-width="1.2"/>
+      <text x="262" y="124" text-anchor="middle" font-family="IBM Plex Mono" font-size="9" fill="#15803d">PRIVATE</text>
+      <!-- RDS -->
+      <ellipse cx="262" cy="156" rx="30" ry="11" fill="#16a34a"/>
+      <rect x="232" y="156" width="60" height="22" fill="#16a34a"/>
+      <ellipse cx="262" cy="178" rx="30" ry="11" fill="#15803d"/>
+      <ellipse cx="262" cy="167" rx="30" ry="11" fill="#22c55e" opacity=".65"/>
+      <text x="262" y="200" text-anchor="middle" font-family="IBM Plex Sans" font-size="11" fill="#15803d" font-weight="600">RDS</text>
+      <!-- Route table private -->
+      <rect x="204" y="214" width="116" height="22" rx="5" fill="white" stroke="#86efac" stroke-width="1"/>
+      <text x="262" y="229" text-anchor="middle" font-family="IBM Plex Mono" font-size="8.5" fill="#15803d">Route: 0.0.0.0/0 → NAT</text>
+      <!-- Arrows -->
+      <line x1="180" y1="74" x2="180" y2="108" stroke="#2563eb" stroke-width="1.5" stroke-dasharray="3,2"/>
+      <line x1="168" y1="84" x2="130" y2="108" stroke="#3b82f6" stroke-width="1" stroke-dasharray="3,2" opacity=".6"/>
+      <line x1="152" y1="150" x2="192" y2="150" stroke="#94a3b8" stroke-width="1.5" stroke-dasharray="4,3"/>
+      <text x="172" y="146" font-family="IBM Plex Mono" font-size="8" fill="#94a3b8">priv</text>
+      <!-- NAT arrow to private -->
+      <path d="M144,225 Q168,240 204,220" stroke="#a78bfa" stroke-width="1.5" fill="none" stroke-dasharray="3,2"/>
+    </svg>
+  </div>
+  <div class="s-num">04 / 15</div>
+</section>
+
+<!-- ════════════════════════════════════════════
+     SLIDE 5 · COMPONENTS — SECURITY LAYERS
+════════════════════════════════════════════ -->
+<section class="slide" id="s5">
+  <div class="inner">
+    <!-- SVG: Concentric security rings -->
+    <svg viewBox="0 0 360 300" fill="none" xmlns="http://www.w3.org/2000/svg" class="rv">
+      <!-- Outermost: VPC -->
+      <rect x="8" y="8" width="344" height="284" rx="14" fill="#eff6ff" stroke="#bfdbfe" stroke-width="1.5" stroke-dasharray="6,3"/>
+      <text x="22" y="28" font-family="IBM Plex Mono" font-size="10" fill="#93c5fd">VPC Boundary</text>
+      <!-- NACL ring -->
+      <rect x="30" y="38" width="300" height="234" rx="12" fill="#fef3c7" stroke="#fbbf24" stroke-width="2" stroke-dasharray="5,3"/>
+      <text x="44" y="57" font-family="IBM Plex Mono" font-size="10" fill="#d97706" font-weight="500">Network ACL (Subnet-level)</text>
+      <text x="44" y="70" font-family="IBM Plex Mono" font-size="8.5" fill="#d97706">Stateless · IN &amp; OUT rules · IP-based</text>
+      <!-- SG ring -->
+      <rect x="64" y="80" width="232" height="172" rx="10" fill="#fce7f3" stroke="#ec4899" stroke-width="2"/>
+      <text x="78" y="99" font-family="IBM Plex Mono" font-size="10" fill="#be185d" font-weight="500">Security Group (Instance-level)</text>
+      <text x="78" y="112" font-family="IBM Plex Mono" font-size="8.5" fill="#be185d">Stateful · Allow rules only · Port-based</text>
+      <!-- Instance box -->
+      <rect x="110" y="126" width="140" height="96" rx="8" fill="#2563eb"/>
+      <!-- Server icon inside -->
+      <rect x="124" y="138" width="112" height="8" rx="2" fill="white" opacity=".85"/>
+      <rect x="124" y="150" width="88" height="6" rx="2" fill="white" opacity=".5"/>
+      <rect x="124" y="160" width="68" height="6" rx="2" fill="white" opacity=".35"/>
+      <circle cx="214" cy="191" r="5" fill="#22c55e"/>
+      <text x="180" y="196" text-anchor="middle" font-family="IBM Plex Sans" font-size="12" fill="white" font-weight="600">EC2 Instance</text>
+      <!-- Labels left -->
+      <text x="22" y="270" font-family="IBM Plex Mono" font-size="9" fill="#6b7280">← subnet boundary</text>
+    </svg>
+
+    <div>
+      <div class="eyebrow rv">Defence in Depth</div>
+      <h2 class="rv" style="font-family:var(--f-d);font-size:var(--h2);font-weight:700;line-height:1.2;margin-bottom:.6em">Two Layers<br>of Security</h2>
+      <div class="comp-list">
+        <div class="ci rv-l" style="border-color:var(--amber)">
+          <span class="cn" style="color:var(--amber)">NACL</span>
+          <span class="cd">Subnet-level firewall. Stateless — rules applied independently to each direction.</span>
+        </div>
+        <div class="ci rv-l" style="border-color:#ec4899">
+          <span class="cn" style="color:#be185d">Sec. Group</span>
+          <span class="cd">Instance-level firewall. Stateful — return traffic auto-allowed.</span>
+        </div>
+        <div class="ci rv-l" style="border-color:var(--green)">
+          <span class="cn" style="color:var(--green)">Together</span>
+          <span class="cd">Multi-layer defence — outer subnet filter + per-instance control.</span>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div class="s-num">05 / 15</div>
+</section>
+
+<!-- ════════════════════════════════════════════
+     SLIDE 6 · SDN
+════════════════════════════════════════════ -->
+<section class="slide" id="s6">
+  <div class="inner">
+    <div class="lft">
+      <div class="eyebrow rv">Software Defined Networking</div>
+      <h2 class="rv" style="font-family:var(--f-d);font-size:var(--h2);font-weight:700;line-height:1.2;margin-bottom:.6em">SDN</h2>
+      <div class="fact-item rv"><div class="dot"></div>Network behaviour controlled via <strong>software</strong>, not hardware config</div>
+      <div class="fact-item rv" style="margin-top:var(--egap)"><div class="dot"></div>Separates <strong>Control Plane</strong> (what to do) from <strong>Data Plane</strong> (doing it)</div>
+      <div class="fact-item rv" style="margin-top:var(--egap)"><div class="dot"></div>Enables <strong>automation</strong>, rapid changes, cloud-scale networking</div>
+      <div style="margin-top:var(--gap)" class="rv">
+        <span class="tag tb" style="font-size:var(--small)">Concept, not a product</span>
+      </div>
+    </div>
+    <!-- SDN diagram: control plane / data plane -->
+    <svg viewBox="0 0 380 300" fill="none" xmlns="http://www.w3.org/2000/svg" class="rv">
+      <!-- Traditional label -->
+      <text x="90" y="18" text-anchor="middle" font-family="IBM Plex Mono" font-size="9.5" fill="#94a3b8">TRADITIONAL</text>
+      <text x="280" y="18" text-anchor="middle" font-family="IBM Plex Mono" font-size="9.5" fill="#2563eb" font-weight="500">SDN</text>
+      <line x1="190" y1="12" x2="190" y2="290" stroke="#e2e8f0" stroke-width="1.5"/>
+
+      <!-- Traditional: coupled boxes -->
+      <rect x="20" y="26" width="136" height="56" rx="8" fill="#f1f5f9" stroke="#cbd5e1" stroke-width="1.5"/>
+      <text x="88" y="50" text-anchor="middle" font-family="IBM Plex Sans" font-size="10" fill="#475569" font-weight="600">Control + Data</text>
+      <text x="88" y="65" text-anchor="middle" font-family="IBM Plex Mono" font-size="9" fill="#94a3b8">Coupled inside router</text>
+      <rect x="20" y="96" width="60" height="40" rx="6" fill="#e2e8f0" stroke="#cbd5e1" stroke-width="1"/>
+      <text x="50" y="120" text-anchor="middle" font-family="IBM Plex Sans" font-size="9" fill="#64748b">Switch A</text>
+      <rect x="96" y="96" width="60" height="40" rx="6" fill="#e2e8f0" stroke="#cbd5e1" stroke-width="1"/>
+      <text x="126" y="120" text-anchor="middle" font-family="IBM Plex Sans" font-size="9" fill="#64748b">Switch B</text>
+      <!-- X marks over traditional -->
+      <line x1="28" y1="140" x2="152" y2="268" stroke="#dc2626" stroke-width="2" stroke-dasharray="6,3" opacity=".4"/>
+      <line x1="152" y1="140" x2="28" y2="268" stroke="#dc2626" stroke-width="2" stroke-dasharray="6,3" opacity=".4"/>
+
+      <!-- SDN: separated planes -->
+      <!-- Control plane box -->
+      <rect x="206" y="26" width="156" height="68" rx="8" fill="#dbeafe" stroke="#2563eb" stroke-width="2"/>
+      <text x="284" y="46" text-anchor="middle" font-family="IBM Plex Mono" font-size="10" fill="#1d4ed8" font-weight="500">CONTROL PLANE</text>
+      <text x="284" y="60" text-anchor="middle" font-family="IBM Plex Sans" font-size="9.5" fill="#3b82f6">SDN Controller</text>
+      <text x="284" y="75" text-anchor="middle" font-family="IBM Plex Mono" font-size="8.5" fill="#93c5fd">REST API  ·  Policy Engine</text>
+      <!-- Arrows down to data plane -->
+      <line x1="250" y1="94" x2="250" y2="118" stroke="#2563eb" stroke-width="2"/>
+      <polygon points="245,116 255,116 250,124" fill="#2563eb"/>
+      <line x1="318" y1="94" x2="318" y2="118" stroke="#2563eb" stroke-width="2"/>
+      <polygon points="313,116 323,116 318,124" fill="#2563eb"/>
+      <text x="284" y="112" text-anchor="middle" font-family="IBM Plex Mono" font-size="7.5" fill="#2563eb">flow rules</text>
+      <!-- Data plane -->
+      <rect x="210" y="128" width="66" height="44" rx="6" fill="#f0fdf4" stroke="#16a34a" stroke-width="1.5"/>
+      <text x="243" y="148" text-anchor="middle" font-family="IBM Plex Sans" font-size="9.5" fill="#15803d" font-weight="600">Switch A</text>
+      <text x="243" y="162" text-anchor="middle" font-family="IBM Plex Mono" font-size="8" fill="#86efac">DATA ONLY</text>
+      <rect x="286" y="128" width="66" height="44" rx="6" fill="#f0fdf4" stroke="#16a34a" stroke-width="1.5"/>
+      <text x="319" y="148" text-anchor="middle" font-family="IBM Plex Sans" font-size="9.5" fill="#15803d" font-weight="600">Switch B</text>
+      <text x="319" y="162" text-anchor="middle" font-family="IBM Plex Mono" font-size="8" fill="#86efac">DATA ONLY</text>
+      <!-- Data plane label -->
+      <text x="284" y="196" text-anchor="middle" font-family="IBM Plex Mono" font-size="10" fill="#15803d">DATA PLANE</text>
+
+      <!-- Key insight -->
+      <rect x="206" y="210" width="156" height="44" rx="8" fill="#f0fdf4" stroke="#16a34a" stroke-width="1.5"/>
+      <text x="284" y="230" text-anchor="middle" font-family="IBM Plex Sans" font-size="10" fill="#15803d" font-weight="600">✓ Decouple = Automate</text>
+      <text x="284" y="246" text-anchor="middle" font-family="IBM Plex Mono" font-size="8.5" fill="#4ade80">Reprogram without touching hardware</text>
+    </svg>
+  </div>
+  <div class="s-num">06 / 15</div>
+</section>
+
+<!-- ════════════════════════════════════════════
+     SLIDE 7 · OVN
+════════════════════════════════════════════ -->
+<section class="slide" id="s7">
+  <div class="inner">
+    <div>
+      <div class="eyebrow rv">Open Virtual Network</div>
+      <h2 class="rv" style="font-family:var(--f-d);font-size:var(--h2);font-weight:700;line-height:1.2;margin-bottom:.6em">OVN</h2>
+      <div class="comp-list">
+        <div class="ci rv-l"><span class="cn">Open-source</span><span class="cd">Part of the Open vSwitch project, production-ready</span></div>
+        <div class="ci rv-l"><span class="cn">Logical nets</span><span class="cd">Defines switches, routers, ACLs at an abstract level</span></div>
+        <div class="ci rv-l"><span class="cn">Northbound</span><span class="cd">High-level API — what the cloud manager configures</span></div>
+        <div class="ci rv-l"><span class="cn">Southbound</span><span class="cd">Low-level flows — what gets pushed to each hypervisor</span></div>
+        <div class="ci rv-l"><span class="cn">Uses OVS</span><span class="cd">Open vSwitch for actual packet forwarding on hosts</span></div>
+      </div>
+    </div>
+    <!-- OVN stack diagram -->
+    <svg viewBox="0 0 300 320" fill="none" xmlns="http://www.w3.org/2000/svg" class="rv">
+      <!-- CMS / OpenStack -->
+      <rect x="20" y="8" width="260" height="38" rx="8" fill="#f1f5f9" stroke="#cbd5e1" stroke-width="1.5"/>
+      <text x="150" y="24" text-anchor="middle" font-family="IBM Plex Mono" font-size="10" fill="#475569" font-weight="500">Cloud Management System</text>
+      <text x="150" y="38" text-anchor="middle" font-family="IBM Plex Mono" font-size="8.5" fill="#94a3b8">OpenStack / Kubernetes</text>
+      <!-- Arrow -->
+      <line x1="150" y1="46" x2="150" y2="60" stroke="#94a3b8" stroke-width="1.5"/>
+      <polygon points="145,58 155,58 150,64" fill="#94a3b8"/>
+      <!-- NB DB -->
+      <rect x="20" y="64" width="260" height="36" rx="8" fill="#dbeafe" stroke="#2563eb" stroke-width="2"/>
+      <text x="150" y="80" text-anchor="middle" font-family="IBM Plex Mono" font-size="10" fill="#1d4ed8" font-weight="500">OVN Northbound DB</text>
+      <text x="150" y="94" text-anchor="middle" font-family="IBM Plex Mono" font-size="8" fill="#60a5fa">Logical switches · Routers · ACLs</text>
+      <!-- Arrow -->
+      <line x1="150" y1="100" x2="150" y2="114" stroke="#2563eb" stroke-width="1.5"/>
+      <polygon points="145,112 155,112 150,118" fill="#2563eb"/>
+      <!-- ovn-northd -->
+      <rect x="20" y="118" width="260" height="32" rx="8" fill="#eff6ff" stroke="#3b82f6" stroke-width="1.5"/>
+      <text x="150" y="134" text-anchor="middle" font-family="IBM Plex Mono" font-size="10" fill="#1d4ed8">ovn-northd</text>
+      <text x="150" y="146" text-anchor="middle" font-family="IBM Plex Mono" font-size="8" fill="#60a5fa">Translates logical → physical flows</text>
+      <!-- Arrow -->
+      <line x1="150" y1="150" x2="150" y2="164" stroke="#2563eb" stroke-width="1.5"/>
+      <polygon points="145,162 155,162 150,168" fill="#2563eb"/>
+      <!-- SB DB -->
+      <rect x="20" y="168" width="260" height="36" rx="8" fill="#dbeafe" stroke="#2563eb" stroke-width="2"/>
+      <text x="150" y="184" text-anchor="middle" font-family="IBM Plex Mono" font-size="10" fill="#1d4ed8" font-weight="500">OVN Southbound DB</text>
+      <text x="150" y="198" text-anchor="middle" font-family="IBM Plex Mono" font-size="8" fill="#60a5fa">Chassis info · Flow bindings · Tunnels</text>
+      <!-- Arrow -->
+      <line x1="150" y1="204" x2="150" y2="218" stroke="#16a34a" stroke-width="1.5"/>
+      <polygon points="145,216 155,216 150,222" fill="#16a34a"/>
+      <!-- ovn-controller (per host) -->
+      <rect x="20" y="222" width="260" height="32" rx="8" fill="#f0fdf4" stroke="#16a34a" stroke-width="1.5"/>
+      <text x="150" y="238" text-anchor="middle" font-family="IBM Plex Mono" font-size="10" fill="#15803d">ovn-controller  (per hypervisor)</text>
+      <text x="150" y="250" text-anchor="middle" font-family="IBM Plex Mono" font-size="8" fill="#4ade80">Watches SB DB · Programs local OVS</text>
+      <!-- Arrow -->
+      <line x1="150" y1="254" x2="150" y2="268" stroke="#16a34a" stroke-width="1.5"/>
+      <polygon points="145,266 155,266 150,272" fill="#16a34a"/>
+      <!-- OVS -->
+      <rect x="20" y="272" width="260" height="36" rx="8" fill="#166534" stroke="#15803d" stroke-width="2"/>
+      <text x="150" y="290" text-anchor="middle" font-family="IBM Plex Sans" font-size="11" fill="white" font-weight="600">Open vSwitch (OVS)</text>
+      <text x="150" y="304" text-anchor="middle" font-family="IBM Plex Mono" font-size="8.5" fill="#86efac">Actual packet forwarding kernel</text>
+    </svg>
+  </div>
+  <div class="s-num">07 / 15</div>
+</section>
+
+<!-- ════════════════════════════════════════════
+     SLIDE 8 · OPEN VSWITCH
+════════════════════════════════════════════ -->
+<section class="slide" id="s8">
+  <div class="inner">
+    <div>
+      <div class="eyebrow rv">Open vSwitch</div>
+      <h2 class="rv" style="font-family:var(--f-d);font-size:var(--h2);font-weight:700;line-height:1.2;margin-bottom:.6em">OVS —<br>Software Switch</h2>
+      <div class="comp-list">
+        <div class="ci rv-l"><span class="cn">Software</span><span class="cd">Runs in the hypervisor kernel, no dedicated hardware</span></div>
+        <div class="ci rv-l"><span class="cn">Flow Tables</span><span class="cd">Prioritised match-action rules — like a programmable ASIC</span></div>
+        <div class="ci rv-l"><span class="cn">OpenFlow</span><span class="cd">Protocol used by controllers to install flow rules</span></div>
+        <div class="ci rv-l"><span class="cn">VXLAN / GRE</span><span class="cd">Tunnel protocols to stretch L2 across L3 networks</span></div>
+      </div>
+    </div>
+    <!-- OVS flow table diagram -->
+    <svg viewBox="0 0 340 300" fill="none" xmlns="http://www.w3.org/2000/svg" class="rv">
+      <!-- Incoming packet -->
+      <rect x="10" y="120" width="60" height="36" rx="6" fill="#e0e7ff" stroke="#6366f1" stroke-width="1.5"/>
+      <text x="40" y="138" text-anchor="middle" font-family="IBM Plex Sans" font-size="9.5" fill="#4338ca" font-weight="600">Packet</text>
+      <text x="40" y="151" text-anchor="middle" font-family="IBM Plex Mono" font-size="8" fill="#818cf8">IN</text>
+      <line x1="70" y1="138" x2="90" y2="138" stroke="#6366f1" stroke-width="1.5"/>
+      <polygon points="88,134 96,138 88,142" fill="#6366f1"/>
+
+      <!-- Flow Table box -->
+      <rect x="96" y="60" width="196" height="196" rx="10" fill="white" stroke="#2563eb" stroke-width="2"/>
+      <text x="194" y="82" text-anchor="middle" font-family="IBM Plex Mono" font-size="10" fill="#1d4ed8" font-weight="500">FLOW TABLE</text>
+      <!-- Table header -->
+      <rect x="106" y="88" width="176" height="20" rx="4" fill="#dbeafe"/>
+      <text x="160" y="102" text-anchor="middle" font-family="IBM Plex Mono" font-size="8.5" fill="#1d4ed8">Priority  ·  Match  ·  Action</text>
+      <!-- Row 1 -->
+      <rect x="106" y="112" width="176" height="22" rx="3" fill="#f8fafc" stroke="#e2e8f0" stroke-width="1"/>
+      <text x="120" y="127" font-family="IBM Plex Mono" font-size="8" fill="#475569">100  dst=10.0.1.5  →  output:eth1</text>
+      <!-- Row 2 -->
+      <rect x="106" y="137" width="176" height="22" rx="3" fill="#f8fafc" stroke="#e2e8f0" stroke-width="1"/>
+      <text x="120" y="152" font-family="IBM Plex Mono" font-size="8" fill="#475569">90   dst=10.0.2.0/24 → tunnel:vxlan</text>
+      <!-- Row 3 (active/highlight) -->
+      <rect x="106" y="162" width="176" height="22" rx="3" fill="#dbeafe" stroke="#2563eb" stroke-width="1.5"/>
+      <text x="120" y="177" font-family="IBM Plex Mono" font-size="8" fill="#1d4ed8" font-weight="500">50   tcp:22  →  drop</text>
+      <!-- Row 4 -->
+      <rect x="106" y="187" width="176" height="22" rx="3" fill="#f8fafc" stroke="#e2e8f0" stroke-width="1"/>
+      <text x="120" y="202" font-family="IBM Plex Mono" font-size="8" fill="#475569">10   *  →  output:uplink</text>
+      <!-- Default -->
+      <rect x="106" y="212" width="176" height="22" rx="3" fill="#fee2e2" stroke="#dc2626" stroke-width="1"/>
+      <text x="120" y="227" font-family="IBM Plex Mono" font-size="8" fill="#dc2626">0    *  →  drop (default)</text>
+      <!-- OpenFlow label -->
+      <text x="194" y="248" text-anchor="middle" font-family="IBM Plex Mono" font-size="8.5" fill="#94a3b8">programmed via OpenFlow / ovn-controller</text>
+
+      <!-- Output -->
+      <line x1="292" y1="138" x2="316" y2="138" stroke="#16a34a" stroke-width="1.5"/>
+      <polygon points="314,134 322,138 314,142" fill="#16a34a"/>
+      <rect x="318" y="120" width="12" height="36" rx="4" fill="#16a34a"/>
+
+      <!-- Tunnel output -->
+      <line x1="194" y1="256" x2="194" y2="280" stroke="#a78bfa" stroke-width="1.5"/>
+      <polygon points="189,278 199,278 194,286" fill="#a78bfa"/>
+      <text x="194" y="298" text-anchor="middle" font-family="IBM Plex Mono" font-size="9" fill="#a78bfa">VXLAN tunnel</text>
+    </svg>
+  </div>
+  <div class="s-num">08 / 15</div>
+</section>
+
+<!-- ════════════════════════════════════════════
+     SLIDE 9 · OPENSTACK & KUBERNETES
+════════════════════════════════════════════ -->
+<section class="slide" id="s9">
+  <div class="inner">
+    <div class="eyebrow rv">Cloud Platforms</div>
+    <h2 class="rv" style="font-family:var(--f-d);font-size:var(--h2);font-weight:700">OpenStack &amp; Kubernetes</h2>
+    <div class="two-col rv">
+      <div class="big-card">
+        <div class="head">
+          <span class="ico">☁️</span>
+          <span class="name">OpenStack</span>
+          <span class="tag tb" style="margin-left:auto">IaaS</span>
+        </div>
+        <div class="feat-row">Full private cloud platform</div>
+        <div class="feat-row">Manages VMs, block storage, object storage, networking</div>
+        <div class="feat-row">Uses OVN/OVS via <strong>Neutron</strong> networking service</div>
+        <div class="feat-row">Deploys on bare-metal in data centres</div>
+        <div class="feat-row" style="color:var(--blue);font-weight:600">→ Tenant = VPC-like isolated network</div>
+      </div>
+      <div class="big-card">
+        <div class="head">
+          <span class="ico">⚙️</span>
+          <span class="name">Kubernetes</span>
+          <span class="tag tg" style="margin-left:auto">CaaS</span>
+        </div>
+        <div class="feat-row">Container orchestration platform</div>
+        <div class="feat-row">Manages deployment, scaling, and networking of containers</div>
+        <div class="feat-row">Uses <strong>CNI plugins</strong> (Calico, Cilium, OVN-Kubernetes)</div>
+        <div class="feat-row">Each Pod gets an IP inside a virtual network</div>
+        <div class="feat-row" style="color:var(--green);font-weight:600">→ Namespace = isolated network scope</div>
+      </div>
+    </div>
+    <div class="rv" style="text-align:center;font-family:var(--f-m);font-size:var(--small);color:var(--muted);padding-top:.25rem">
+      Both rely on SDN / OVN / OVS concepts to deliver virtual networking
+    </div>
+  </div>
+  <div class="s-num">09 / 15</div>
+</section>
+
+<!-- ════════════════════════════════════════════
+     SLIDE 10 · RELATIONSHIP CHAIN
+════════════════════════════════════════════ -->
+<section class="slide" id="s10">
+  <div class="inner">
+    <div class="eyebrow rv" style="justify-content:center">How It All Connects</div>
+    <h2 class="rv" style="font-family:var(--f-d);font-size:var(--h2);font-weight:700;text-align:center">Technology Stack</h2>
+    <svg viewBox="0 0 860 240" fill="none" xmlns="http://www.w3.org/2000/svg" class="rv">
+      <!-- SDN -->
+      <rect x="10" y="60" width="130" height="80" rx="10" fill="#dbeafe" stroke="#2563eb" stroke-width="2"/>
+      <text x="75" y="92" text-anchor="middle" font-family="Syne" font-size="16" fill="#1d4ed8" font-weight="800">SDN</text>
+      <text x="75" y="110" text-anchor="middle" font-family="IBM Plex Mono" font-size="9" fill="#2563eb">Concept</text>
+      <text x="75" y="124" text-anchor="middle" font-family="IBM Plex Sans" font-size="9.5" fill="#3b82f6">Architectural idea</text>
+      <!-- Arrow 1 -->
+      <line x1="140" y1="100" x2="170" y2="100" stroke="#2563eb" stroke-width="2"/>
+      <polygon points="168,95 178,100 168,105" fill="#2563eb"/>
+      <!-- OVN -->
+      <rect x="178" y="60" width="130" height="80" rx="10" fill="#eff6ff" stroke="#2563eb" stroke-width="2"/>
+      <text x="243" y="92" text-anchor="middle" font-family="Syne" font-size="16" fill="#1d4ed8" font-weight="800">OVN</text>
+      <text x="243" y="110" text-anchor="middle" font-family="IBM Plex Mono" font-size="9" fill="#2563eb">SDN Tool</text>
+      <text x="243" y="124" text-anchor="middle" font-family="IBM Plex Sans" font-size="9.5" fill="#3b82f6">Logical networking</text>
+      <!-- Arrow 2 -->
+      <line x1="308" y1="100" x2="338" y2="100" stroke="#2563eb" stroke-width="2"/>
+      <polygon points="336,95 346,100 336,105" fill="#2563eb"/>
+      <!-- OVS -->
+      <rect x="346" y="60" width="130" height="80" rx="10" fill="#f0fdf4" stroke="#16a34a" stroke-width="2"/>
+      <text x="411" y="92" text-anchor="middle" font-family="Syne" font-size="16" fill="#15803d" font-weight="800">OVS</text>
+      <text x="411" y="110" text-anchor="middle" font-family="IBM Plex Mono" font-size="9" fill="#16a34a">Forwarder</text>
+      <text x="411" y="124" text-anchor="middle" font-family="IBM Plex Sans" font-size="9.5" fill="#4ade80">Packet engine</text>
+      <!-- Arrow 3 -->
+      <line x1="476" y1="100" x2="506" y2="100" stroke="#16a34a" stroke-width="2"/>
+      <polygon points="504,95 514,100 504,105" fill="#16a34a"/>
+      <!-- OpenStack / K8s -->
+      <rect x="514" y="40" width="164" height="120" rx="10" fill="#fefce8" stroke="#ca8a04" stroke-width="2"/>
+      <text x="596" y="68" text-anchor="middle" font-family="IBM Plex Mono" font-size="9.5" fill="#a16207" font-weight="500">PLATFORM</text>
+      <text x="596" y="90" text-anchor="middle" font-family="IBM Plex Sans" font-size="12" fill="#1e293b" font-weight="600">OpenStack</text>
+      <line x1="530" y1="100" x2="680" y2="100" stroke="#d97706" stroke-width="1" stroke-dasharray="4,2"/>
+      <text x="596" y="118" text-anchor="middle" font-family="IBM Plex Sans" font-size="12" fill="#1e293b" font-weight="600">Kubernetes</text>
+      <text x="596" y="148" text-anchor="middle" font-family="IBM Plex Mono" font-size="8.5" fill="#a16207">Orchestration layer</text>
+      <!-- Arrow 4 -->
+      <line x1="678" y1="100" x2="706" y2="100" stroke="#ca8a04" stroke-width="2"/>
+      <polygon points="704,95 714,100 704,105" fill="#ca8a04"/>
+      <!-- VNet/VPC -->
+      <rect x="714" y="50" width="136" height="100" rx="10" fill="#2563eb" stroke="#1d4ed8" stroke-width="2"/>
+      <text x="782" y="84" text-anchor="middle" font-family="Syne" font-size="13" fill="white" font-weight="800">VPC / VNet</text>
+      <text x="782" y="102" text-anchor="middle" font-family="IBM Plex Mono" font-size="9" fill="#bfdbfe">User-facing</text>
+      <text x="782" y="116" text-anchor="middle" font-family="IBM Plex Mono" font-size="9" fill="#bfdbfe">Cloud Service</text>
+      <text x="782" y="135" text-anchor="middle" font-family="IBM Plex Sans" font-size="9.5" fill="#93c5fd">AWS · Azure · GCP</text>
+
+      <!-- Bottom labels -->
+      <text x="75" y="172" text-anchor="middle" font-family="IBM Plex Mono" font-size="8.5" fill="#94a3b8">Abstract idea</text>
+      <text x="243" y="172" text-anchor="middle" font-family="IBM Plex Mono" font-size="8.5" fill="#94a3b8">Open-source tool</text>
+      <text x="411" y="172" text-anchor="middle" font-family="IBM Plex Mono" font-size="8.5" fill="#94a3b8">Implementation</text>
+      <text x="596" y="192" text-anchor="middle" font-family="IBM Plex Mono" font-size="8.5" fill="#94a3b8">Uses SDN/OVN internally</text>
+      <text x="782" y="180" text-anchor="middle" font-family="IBM Plex Mono" font-size="8.5" fill="#94a3b8">What users configure</text>
+    </svg>
+  </div>
+  <div class="s-num">10 / 15</div>
+</section>
+
+<!-- ════════════════════════════════════════════
+     SLIDE 11 · COMPARISON
+════════════════════════════════════════════ -->
+<section class="slide" id="s11">
+  <div class="inner">
+    <div class="eyebrow rv">Side by Side</div>
+    <h2 class="rv" style="font-family:var(--f-d);font-size:var(--h2);font-weight:700">SDN vs OVN vs VNet</h2>
+    <div class="three-col rv">
+      <div class="cmp-card">
+        <div class="cmp-head" style="background:var(--blue-ghost);color:var(--blue)">SDN</div>
+        <div class="cmp-rows">
+          <div class="cmp-row"><span class="rl">Type</span><span class="rv">Concept / Paradigm</span></div>
+          <div class="cmp-row"><span class="rl">Level</span><span class="rv">Architectural principle</span></div>
+          <div class="cmp-row"><span class="rl">Who</span><span class="rv">Network architects</span></div>
+          <div class="cmp-row"><span class="rl">Output</span><span class="rv">Design patterns</span></div>
+          <div class="cmp-row"><span class="rl">Example</span><span class="rv">Separation of planes</span></div>
+        </div>
+      </div>
+      <div class="cmp-card">
+        <div class="cmp-head" style="background:var(--green-pale);color:var(--green)">OVN</div>
+        <div class="cmp-rows">
+          <div class="cmp-row"><span class="rl">Type</span><span class="rv">Open-source tool</span></div>
+          <div class="cmp-row"><span class="rl">Level</span><span class="rv">Mid-stack implementation</span></div>
+          <div class="cmp-row"><span class="rl">Who</span><span class="rv">Platform engineers</span></div>
+          <div class="cmp-row"><span class="rl">Output</span><span class="rv">Virtual networks via OVS</span></div>
+          <div class="cmp-row"><span class="rl">Example</span><span class="rv">OVN-Kubernetes, Neutron</span></div>
+        </div>
+      </div>
+      <div class="cmp-card">
+        <div class="cmp-head" style="background:#ede9fe;color:#7c3aed">VNet / VPC</div>
+        <div class="cmp-rows">
+          <div class="cmp-row"><span class="rl">Type</span><span class="rv">Managed cloud service</span></div>
+          <div class="cmp-row"><span class="rl">Level</span><span class="rv">User-facing abstraction</span></div>
+          <div class="cmp-row"><span class="rl">Who</span><span class="rv">Cloud developers / DevOps</span></div>
+          <div class="cmp-row"><span class="rl">Output</span><span class="rv">Configured network topology</span></div>
+          <div class="cmp-row"><span class="rl">Example</span><span class="rv">AWS VPC, Azure VNet</span></div>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div class="s-num">11 / 15</div>
+</section>
+
+<!-- ════════════════════════════════════════════
+     SLIDE 12 · AWS VPC REAL EXAMPLE
+════════════════════════════════════════════ -->
+<section class="slide" id="s12">
+  <div class="inner">
+    <div class="title-row rv">
+      <div class="eyebrow" style="margin-bottom:0">Real AWS Example</div>
+      <h2 style="font-family:var(--f-d);font-size:var(--h3);font-weight:700">VPC 10.0.0.0/16 — Multi-AZ Architecture</h2>
+    </div>
+    <svg viewBox="0 0 860 380" fill="none" xmlns="http://www.w3.org/2000/svg" class="rv">
+      <!-- Internet + IGW header -->
+      <ellipse cx="430" cy="24" rx="100" ry="18" fill="#e0e7ff" stroke="#6366f1" stroke-width="1.5"/>
+      <text x="430" y="29" text-anchor="middle" font-family="IBM Plex Sans" font-size="11" fill="#4338ca" font-weight="600">🌐 Internet</text>
+      <line x1="430" y1="42" x2="430" y2="58" stroke="#2563eb" stroke-width="2"/>
+      <rect x="350" y="58" width="160" height="24" rx="6" fill="#2563eb"/>
+      <text x="430" y="74" text-anchor="middle" font-family="IBM Plex Mono" font-size="10" fill="white" font-weight="500">Internet Gateway (IGW)</text>
+
+      <!-- VPC outer border -->
+      <rect x="12" y="90" width="836" height="278" rx="12" fill="none" stroke="#2563eb" stroke-width="1.5" stroke-dasharray="7,4"/>
+      <text x="24" y="108" font-family="IBM Plex Mono" font-size="10" fill="#2563eb">VPC: 10.0.0.0/16</text>
+
+      <!-- AZ-a -->
+      <rect x="24" y="116" width="256" height="240" rx="10" fill="#f8fafc" stroke="#cbd5e1" stroke-width="1.5"/>
+      <text x="152" y="134" text-anchor="middle" font-family="IBM Plex Mono" font-size="9.5" fill="#64748b" font-weight="500">us-east-1a</text>
+      <!-- Public subnet a -->
+      <rect x="34" y="140" width="236" height="100" rx="8" fill="#dbeafe" stroke="#3b82f6" stroke-width="1.2"/>
+      <text x="152" y="158" text-anchor="middle" font-family="IBM Plex Mono" font-size="8.5" fill="#1d4ed8">PUBLIC  10.0.1.0/24</text>
+      <rect x="70" y="164" width="80" height="34" rx="6" fill="#2563eb"/>
+      <text x="110" y="181" text-anchor="middle" font-family="IBM Plex Sans" font-size="10" fill="white" font-weight="600">EC2</text>
+      <text x="110" y="193" text-anchor="middle" font-family="IBM Plex Mono" font-size="7.5" fill="#bfdbfe">web-01</text>
+      <rect x="160" y="164" width="80" height="34" rx="6" fill="#818cf8"/>
+      <text x="200" y="181" text-anchor="middle" font-family="IBM Plex Sans" font-size="10" fill="white" font-weight="600">NAT GW</text>
+      <text x="200" y="193" text-anchor="middle" font-family="IBM Plex Mono" font-size="7.5" fill="#e0e7ff">outbound</text>
+      <text x="152" y="234" text-anchor="middle" font-family="IBM Plex Mono" font-size="7.5" fill="#3b82f6">SG: 80,443 ← 0.0.0.0/0</text>
+      <!-- Private subnet a -->
+      <rect x="34" y="248" width="236" height="96" rx="8" fill="#dcfce7" stroke="#16a34a" stroke-width="1.2"/>
+      <text x="152" y="266" text-anchor="middle" font-family="IBM Plex Mono" font-size="8.5" fill="#15803d">PRIVATE  10.0.2.0/24</text>
+      <ellipse cx="152" cy="293" rx="34" ry="12" fill="#16a34a"/>
+      <rect x="118" y="293" width="68" height="24" fill="#16a34a"/>
+      <ellipse cx="152" cy="317" rx="34" ry="12" fill="#15803d"/>
+      <ellipse cx="152" cy="305" rx="34" ry="12" fill="#22c55e" opacity=".65"/>
+      <text x="152" y="309" text-anchor="middle" font-family="IBM Plex Sans" font-size="10" fill="white" font-weight="600">RDS Primary</text>
+      <text x="152" y="334" text-anchor="middle" font-family="IBM Plex Mono" font-size="7.5" fill="#15803d">SG: 3306 ← EC2 only</text>
+
+      <!-- AZ-b -->
+      <rect x="296" y="116" width="268" height="240" rx="10" fill="#f8fafc" stroke="#cbd5e1" stroke-width="1.5"/>
+      <text x="430" y="134" text-anchor="middle" font-family="IBM Plex Mono" font-size="9.5" fill="#64748b" font-weight="500">us-east-1b</text>
+      <rect x="306" y="140" width="248" height="100" rx="8" fill="#dbeafe" stroke="#3b82f6" stroke-width="1.2"/>
+      <text x="430" y="158" text-anchor="middle" font-family="IBM Plex Mono" font-size="8.5" fill="#1d4ed8">PUBLIC  10.0.3.0/24</text>
+      <rect x="350" y="164" width="80" height="34" rx="6" fill="#2563eb"/>
+      <text x="390" y="181" text-anchor="middle" font-family="IBM Plex Sans" font-size="10" fill="white" font-weight="600">EC2</text>
+      <text x="390" y="193" text-anchor="middle" font-family="IBM Plex Mono" font-size="7.5" fill="#bfdbfe">web-02</text>
+      <rect x="440" y="164" width="84" height="34" rx="6" fill="#818cf8"/>
+      <text x="482" y="181" text-anchor="middle" font-family="IBM Plex Sans" font-size="10" fill="white" font-weight="600">App Server</text>
+      <text x="482" y="193" text-anchor="middle" font-family="IBM Plex Mono" font-size="7.5" fill="#e0e7ff">app-01</text>
+      <text x="430" y="234" text-anchor="middle" font-family="IBM Plex Mono" font-size="7.5" fill="#3b82f6">SG: 80,443 ← 0.0.0.0/0</text>
+      <rect x="306" y="248" width="248" height="96" rx="8" fill="#dcfce7" stroke="#16a34a" stroke-width="1.2"/>
+      <text x="430" y="266" text-anchor="middle" font-family="IBM Plex Mono" font-size="8.5" fill="#15803d">PRIVATE  10.0.4.0/24</text>
+      <ellipse cx="430" cy="293" rx="36" ry="12" fill="#16a34a"/>
+      <rect x="394" y="293" width="72" height="24" fill="#16a34a"/>
+      <ellipse cx="430" cy="317" rx="36" ry="12" fill="#15803d"/>
+      <ellipse cx="430" cy="305" rx="36" ry="12" fill="#22c55e" opacity=".65"/>
+      <text x="430" y="309" text-anchor="middle" font-family="IBM Plex Sans" font-size="10" fill="white" font-weight="600">RDS Standby</text>
+      <text x="430" y="334" text-anchor="middle" font-family="IBM Plex Mono" font-size="7.5" fill="#15803d">Multi-AZ failover</text>
+
+      <!-- AZ-c -->
+      <rect x="580" y="116" width="256" height="240" rx="10" fill="#f8fafc" stroke="#cbd5e1" stroke-width="1.5"/>
+      <text x="708" y="134" text-anchor="middle" font-family="IBM Plex Mono" font-size="9.5" fill="#64748b" font-weight="500">us-east-1c</text>
+      <rect x="590" y="140" width="236" height="100" rx="8" fill="#dbeafe" stroke="#3b82f6" stroke-width="1.2"/>
+      <text x="708" y="158" text-anchor="middle" font-family="IBM Plex Mono" font-size="8.5" fill="#1d4ed8">PUBLIC  10.0.5.0/24</text>
+      <rect x="644" y="164" width="80" height="34" rx="6" fill="#2563eb"/>
+      <text x="684" y="181" text-anchor="middle" font-family="IBM Plex Sans" font-size="10" fill="white" font-weight="600">EC2</text>
+      <text x="684" y="193" text-anchor="middle" font-family="IBM Plex Mono" font-size="7.5" fill="#bfdbfe">bastion</text>
+      <text x="708" y="234" text-anchor="middle" font-family="IBM Plex Mono" font-size="7.5" fill="#3b82f6">SG: 22 ← VPN only</text>
+      <rect x="590" y="248" width="236" height="96" rx="8" fill="#fef3c7" stroke="#d97706" stroke-width="1.2"/>
+      <text x="708" y="266" text-anchor="middle" font-family="IBM Plex Mono" font-size="8.5" fill="#b45309">PRIVATE  10.0.6.0/24</text>
+      <rect x="634" y="274" width="80" height="34" rx="6" fill="#d97706"/>
+      <text x="674" y="291" text-anchor="middle" font-family="IBM Plex Sans" font-size="10" fill="white" font-weight="600">Lambda</text>
+      <text x="674" y="303" text-anchor="middle" font-family="IBM Plex Mono" font-size="7.5" fill="#fef3c7">workers</text>
+      <text x="708" y="334" text-anchor="middle" font-family="IBM Plex Mono" font-size="7.5" fill="#b45309">SG: no inbound</text>
+
+      <!-- IGW lines to subnets -->
+      <line x1="152" y1="82" x2="152" y2="116" stroke="#2563eb" stroke-width="1.5" stroke-dasharray="4,3" opacity=".6"/>
+      <line x1="430" y1="82" x2="430" y2="116" stroke="#2563eb" stroke-width="1.5" stroke-dasharray="4,3" opacity=".6"/>
+      <line x1="708" y1="82" x2="708" y2="116" stroke="#2563eb" stroke-width="1.5" stroke-dasharray="4,3" opacity=".6"/>
+
+      <!-- RDS replication arrow -->
+      <path d="M186,310 Q270,360 394,310" stroke="#15803d" stroke-width="1.5" fill="none" stroke-dasharray="4,3" opacity=".7"/>
+      <text x="270" y="370" text-anchor="middle" font-family="IBM Plex Mono" font-size="8" fill="#15803d">synchronous replication</text>
+    </svg>
+  </div>
+  <div class="s-num">12 / 15</div>
+</section>
+
+<!-- ════════════════════════════════════════════
+     SLIDE 13 · DATA FLOW
+════════════════════════════════════════════ -->
+<section class="slide" id="s13">
+  <div class="inner">
+    <div>
+      <div class="eyebrow rv">Request Journey</div>
+      <h2 class="rv" style="font-family:var(--f-d);font-size:var(--h2);font-weight:700;line-height:1.2;margin-bottom:.6em">Data Flow</h2>
+      <div class="comp-list">
+        <div class="ci rv-l" style="border-color:#6366f1"><span class="cn" style="color:#6366f1">Step 1</span><span class="cd">User sends HTTPS request from browser</span></div>
+        <div class="ci rv-l" style="border-color:var(--blue)"><span class="cn">Step 2</span><span class="cd">Internet Gateway routes to public subnet</span></div>
+        <div class="ci rv-l" style="border-color:var(--blue)"><span class="cn">Step 3</span><span class="cd">Security Group checks — port 443 allowed</span></div>
+        <div class="ci rv-l" style="border-color:var(--green)"><span class="cn">Step 4</span><span class="cd">EC2 processes request, queries RDS via :3306</span></div>
+        <div class="ci rv-l" style="border-color:var(--green)"><span class="cn">Step 5</span><span class="cd">RDS is private — only reachable from EC2</span></div>
+      </div>
+    </div>
+    <!-- Data flow SVG with animation -->
+    <svg viewBox="0 0 340 300" fill="none" xmlns="http://www.w3.org/2000/svg" class="rv">
+      <!-- User -->
+      <rect x="10" y="20" width="70" height="60" rx="10" fill="#e0e7ff" stroke="#6366f1" stroke-width="2"/>
+      <text x="45" y="48" text-anchor="middle" font-size="22">👤</text>
+      <text x="45" y="68" text-anchor="middle" font-family="IBM Plex Sans" font-size="10" fill="#4338ca" font-weight="600">User</text>
+      <!-- Arrow 1 -->
+      <line x1="80" y1="50" x2="110" y2="50" stroke="#6366f1" stroke-width="2"/>
+      <polygon points="108,45 116,50 108,55" fill="#6366f1"/>
+      <text x="95" y="44" text-anchor="middle" font-family="IBM Plex Mono" font-size="7.5" fill="#6366f1">:443</text>
+      <!-- Internet -->
+      <ellipse cx="140" cy="50" rx="30" ry="22" fill="#eff6ff" stroke="#818cf8" stroke-width="1.5"/>
+      <text x="140" y="47" text-anchor="middle" font-family="IBM Plex Sans" font-size="9" fill="#6366f1" font-weight="600">🌐</text>
+      <text x="140" y="61" text-anchor="middle" font-family="IBM Plex Mono" font-size="7.5" fill="#818cf8">Internet</text>
+      <!-- Arrow 2 -->
+      <line x1="170" y1="50" x2="200" y2="50" stroke="#2563eb" stroke-width="2"/>
+      <polygon points="198,45 206,50 198,55" fill="#2563eb"/>
+      <!-- IGW -->
+      <rect x="206" y="30" width="64" height="40" rx="7" fill="#2563eb"/>
+      <text x="238" y="48" text-anchor="middle" font-family="IBM Plex Mono" font-size="9.5" fill="white" font-weight="500">IGW</text>
+      <text x="238" y="63" text-anchor="middle" font-family="IBM Plex Mono" font-size="7.5" fill="#bfdbfe">Gateway</text>
+      <!-- Down arrow from IGW -->
+      <line x1="238" y1="70" x2="238" y2="100" stroke="#2563eb" stroke-width="2"/>
+      <polygon points="233,98 243,98 238,106" fill="#2563eb"/>
+      <!-- Public Subnet zone -->
+      <rect x="140" y="106" width="190" height="72" rx="8" fill="#dbeafe" stroke="#3b82f6" stroke-width="1.5"/>
+      <text x="235" y="124" text-anchor="middle" font-family="IBM Plex Mono" font-size="8.5" fill="#1d4ed8">PUBLIC SUBNET</text>
+      <!-- SG check -->
+      <rect x="155" y="130" width="54" height="30" rx="6" fill="white" stroke="#f59e0b" stroke-width="1.5"/>
+      <text x="182" y="144" text-anchor="middle" font-family="IBM Plex Mono" font-size="8" fill="#d97706" font-weight="500">SG ✓</text>
+      <text x="182" y="155" text-anchor="middle" font-family="IBM Plex Mono" font-size="7" fill="#d97706">443 OK</text>
+      <!-- EC2 -->
+      <rect x="220" y="126" width="96" height="36" rx="7" fill="#2563eb"/>
+      <text x="268" y="143" text-anchor="middle" font-family="IBM Plex Sans" font-size="11" fill="white" font-weight="600">EC2</text>
+      <text x="268" y="157" text-anchor="middle" font-family="IBM Plex Mono" font-size="7.5" fill="#bfdbfe">web server</text>
+      <!-- Arrow from SG to EC2 -->
+      <line x1="209" y1="145" x2="220" y2="145" stroke="#f59e0b" stroke-width="1.5"/>
+      <polygon points="218,141 224,145 218,149" fill="#f59e0b"/>
+      <!-- Down arrow from EC2 to private -->
+      <line x1="268" y1="162" x2="268" y2="196" stroke="#16a34a" stroke-width="2" stroke-dasharray="4,3"/>
+      <polygon points="263,194 273,194 268,202" fill="#16a34a"/>
+      <text x="285" y="184" font-family="IBM Plex Mono" font-size="7.5" fill="#16a34a">:3306</text>
+      <!-- Private subnet -->
+      <rect x="140" y="202" width="190" height="72" rx="8" fill="#dcfce7" stroke="#16a34a" stroke-width="1.5"/>
+      <text x="235" y="220" text-anchor="middle" font-family="IBM Plex Mono" font-size="8.5" fill="#15803d">PRIVATE SUBNET</text>
+      <!-- SG check private -->
+      <rect x="155" y="226" width="54" height="30" rx="6" fill="white" stroke="#16a34a" stroke-width="1.5"/>
+      <text x="182" y="240" text-anchor="middle" font-family="IBM Plex Mono" font-size="8" fill="#15803d" font-weight="500">SG ✓</text>
+      <text x="182" y="251" text-anchor="middle" font-family="IBM Plex Mono" font-size="7" fill="#15803d">EC2 only</text>
+      <!-- RDS -->
+      <ellipse cx="268" cy="238" rx="30" ry="9" fill="#16a34a"/>
+      <rect x="238" y="238" width="60" height="20" fill="#16a34a"/>
+      <ellipse cx="268" cy="258" rx="30" ry="9" fill="#15803d"/>
+      <ellipse cx="268" cy="247" rx="30" ry="9" fill="#22c55e" opacity=".7"/>
+      <text x="268" y="251" text-anchor="middle" font-family="IBM Plex Sans" font-size="10" fill="white" font-weight="600">RDS</text>
+      <!-- Arrow to RDS -->
+      <line x1="209" y1="241" x2="238" y2="241" stroke="#16a34a" stroke-width="1.5"/>
+      <polygon points="236,237 242,241 236,245" fill="#16a34a"/>
+
+      <!-- Animated flow dots -->
+      <circle class="flow-dot" cx="80" cy="50" r="4" fill="#6366f1"/>
+      <circle class="flow-dot" cx="80" cy="50" r="4" fill="#2563eb"/>
+      <circle class="flow-dot" cx="80" cy="50" r="4" fill="#16a34a"/>
+    </svg>
+  </div>
+  <div class="s-num">13 / 15</div>
+</section>
+
+<!-- ════════════════════════════════════════════
+     SLIDE 14 · SECURITY BEST PRACTICES
+════════════════════════════════════════════ -->
+<section class="slide" id="s14">
+  <div class="inner">
+    <div class="eyebrow rv" style="justify-content:center">Security</div>
+    <h2 class="rv" style="font-family:var(--f-d);font-size:var(--h2);font-weight:700;text-align:center">Best Practices</h2>
+    <div class="bp-grid rv">
+      <div class="bp-card">
+        <span class="ico">🔒</span>
+        <div class="text">
+          <div class="ttl">Keep DB Private</div>
+          <div class="dsc">RDS should never sit in a public subnet. No direct internet route. Only EC2/app servers may reach it.</div>
+        </div>
+      </div>
+      <div class="bp-card">
+        <span class="ico">🚫</span>
+        <div class="text">
+          <div class="ttl">No Open Access</div>
+          <div class="dsc">Never allow 0.0.0.0/0 on sensitive ports (22, 3306, 5432). Use specific CIDR ranges or SG references.</div>
+        </div>
+      </div>
+      <div class="bp-card">
+        <span class="ico">🗓️</span>
+        <div class="text">
+          <div class="ttl">Multi-AZ Redundancy</div>
+          <div class="dsc">Spread subnets across ≥ 2 AZs. Enables failover — any single AZ failure won't take you down.</div>
+        </div>
+      </div>
+      <div class="bp-card">
+        <span class="ico">🧱</span>
+        <div class="text">
+          <div class="ttl">Restrict Ports</div>
+          <div class="dsc">Allow only the minimum ports needed. Web: 443. App: internal only. DB: port from app tier only.</div>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div class="s-num">14 / 15</div>
+</section>
+
+<!-- ════════════════════════════════════════════
+     SLIDE 15 · CONCLUSION
+════════════════════════════════════════════ -->
+<section class="slide" id="s15">
+  <div class="inner">
+    <div class="eyebrow rv" style="justify-content:center">Summary</div>
+    <h2 class="rv" style="font-family:var(--f-d);font-size:var(--h2);font-weight:700;text-align:center;max-width:600px;margin:0 auto">Virtual networks enable<br>secure cloud architecture</h2>
+    <div class="concl-grid rv">
+      <div class="concl-card">
+        <span class="ico">🧠</span>
+        <span class="nm">SDN</span>
+        <span class="dsc">The concept — separate control from data, automate everything</span>
+      </div>
+      <div class="concl-card">
+        <span class="ico">⚙️</span>
+        <span class="nm">OVN / OVS</span>
+        <span class="dsc">The implementation — open-source tools that make SDN real on hypervisors</span>
+      </div>
+      <div class="concl-card">
+        <span class="ico">☁️</span>
+        <span class="nm">VPC / VNet</span>
+        <span class="dsc">The service — what developers configure on AWS, Azure, GCP</span>
+      </div>
+    </div>
+    <div class="rv" style="text-align:center;margin-top:var(--gap)">
+      <svg viewBox="0 0 480 40" style="width:min(100%,480px);height:auto" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <rect x="0" y="8" width="90" height="26" rx="13" fill="#2563eb"/>
+        <text x="45" y="25" text-anchor="middle" font-family="IBM Plex Mono" font-size="10" fill="white">SDN concept</text>
+        <polygon points="93,21 103,21 98,27 103,21 93,21" fill="#2563eb" opacity=".5"/>
+        <line x1="92" y1="21" x2="110" y2="21" stroke="#2563eb" stroke-width="1.5" opacity=".5"/>
+        <rect x="112" y="8" width="86" height="26" rx="13" fill="#16a34a"/>
+        <text x="155" y="25" text-anchor="middle" font-family="IBM Plex Mono" font-size="10" fill="white">OVN / OVS</text>
+        <polygon points="201,21 211,21 206,27" fill="#16a34a" opacity=".5"/>
+        <line x1="200" y1="21" x2="218" y2="21" stroke="#16a34a" stroke-width="1.5" opacity=".5"/>
+        <rect x="220" y="8" width="102" height="26" rx="13" fill="#d97706"/>
+        <text x="271" y="25" text-anchor="middle" font-family="IBM Plex Mono" font-size="10" fill="white">OpenStack / K8s</text>
+        <polygon points="325,21 335,21 330,27" fill="#d97706" opacity=".5"/>
+        <line x1="324" y1="21" x2="342" y2="21" stroke="#d97706" stroke-width="1.5" opacity=".5"/>
+        <rect x="344" y="8" width="80" height="26" rx="13" fill="#7c3aed"/>
+        <text x="384" y="25" text-anchor="middle" font-family="IBM Plex Mono" font-size="10" fill="white">VPC / VNet</text>
+        <line x1="426" y1="21" x2="450" y2="21" stroke="#7c3aed" stroke-width="1.5" opacity=".5"/>
+        <polygon points="448,17 458,21 448,25" fill="#7c3aed" opacity=".5"/>
+        <text x="472" y="25" font-family="IBM Plex Mono" font-size="16" fill="#7c3aed">🎯</text>
+      </svg>
+    </div>
+  </div>
+  <div class="s-num">15 / 15</div>
+</section>
+
+<script>
+/* ═══════════════════════════════
+   CANVAS: Animated Network Nodes
+═══════════════════════════════ */
+(function() {
+  const canvas = document.getElementById('netCanvas');
+  if (!canvas) return;
+  const ctx = canvas.getContext('2d');
+  let W, H, nodes = [];
+
+  function resize() {
+    W = canvas.width  = canvas.offsetWidth;
+    H = canvas.height = canvas.offsetHeight;
+  }
+
+  function initNodes() {
+    nodes = [];
+    const count = Math.floor((W * H) / 14000);
+    for (let i = 0; i < count; i++) {
+      nodes.push({
+        x: Math.random() * W, y: Math.random() * H,
+        vx: (Math.random() - 0.5) * 0.4, vy: (Math.random() - 0.5) * 0.4,
+        r: 2 + Math.random() * 3
+      });
+    }
+  }
+
+  function draw() {
+    ctx.clearRect(0, 0, W, H);
+    const D = 120;
+    for (let i = 0; i < nodes.length; i++) {
+      const n = nodes[i];
+      n.x += n.vx; n.y += n.vy;
+      if (n.x < 0 || n.x > W) n.vx *= -1;
+      if (n.y < 0 || n.y > H) n.vy *= -1;
+      ctx.beginPath();
+      ctx.arc(n.x, n.y, n.r, 0, Math.PI * 2);
+      ctx.fillStyle = 'rgba(37,99,235,0.35)';
+      ctx.fill();
+      for (let j = i + 1; j < nodes.length; j++) {
+        const m = nodes[j];
+        const dx = n.x - m.x, dy = n.y - m.y;
+        const dist = Math.sqrt(dx*dx + dy*dy);
+        if (dist < D) {
+          ctx.beginPath();
+          ctx.moveTo(n.x, n.y); ctx.lineTo(m.x, m.y);
+          ctx.strokeStyle = `rgba(37,99,235,${0.12 * (1 - dist/D)})`;
+          ctx.lineWidth = 1;
+          ctx.stroke();
+        }
+      }
+    }
+    requestAnimationFrame(draw);
+  }
+
+  resize(); initNodes(); draw();
+  window.addEventListener('resize', () => { resize(); initNodes(); });
+})();
+
+/* ═══════════════════════════════
+   SLIDE PRESENTATION CONTROLLER
+═══════════════════════════════ */
+class SlidePresentation {
+  constructor() {
+    this.slides  = Array.from(document.querySelectorAll('.slide'));
+    this.current = 0;
+    this.prog    = document.getElementById('prog');
+    this.navEl   = document.getElementById('nav');
+    this.building = false;
+    this.init();
+  }
+
+  init() {
+    this.buildDots();
+    this.setupObserver();
+    this.setupKeys();
+    this.setupTouch();
+    this.setupWheel();
+    this.updateProgress();
+  }
+
+  buildDots() {
+    this.navEl.innerHTML = '';
+    this.slides.forEach((_, i) => {
+      const d = document.createElement('button');
+      d.className = 'nd' + (i === 0 ? ' active' : '');
+      d.setAttribute('aria-label', `Slide ${i + 1}`);
+      d.addEventListener('click', () => this.goTo(i));
+      this.navEl.appendChild(d);
+    });
+  }
+
+  setupObserver() {
+    const obs = new IntersectionObserver((entries) => {
+      entries.forEach(e => {
+        if (e.isIntersecting) {
+          e.target.classList.add('visible');
+          const idx = this.slides.indexOf(e.target);
+          if (idx !== -1) { this.current = idx; this.updateDots(); this.updateProgress(); }
+        }
+      });
+    }, { threshold: 0.55 });
+    this.slides.forEach(s => obs.observe(s));
+  }
+
+  setupKeys() {
+    document.addEventListener('keydown', e => {
+      if (e.key === 'ArrowDown' || e.key === 'ArrowRight' || e.key === ' ')  { e.preventDefault(); this.next(); }
+      if (e.key === 'ArrowUp'   || e.key === 'ArrowLeft')                    { e.preventDefault(); this.prev(); }
+      if (e.key === 'Home')  this.goTo(0);
+      if (e.key === 'End')   this.goTo(this.slides.length - 1);
+    });
+  }
+
+  setupTouch() {
+    let startY = 0, startX = 0;
+    document.addEventListener('touchstart', e => { startY = e.touches[0].clientY; startX = e.touches[0].clientX; }, { passive: true });
+    document.addEventListener('touchend', e => {
+      const dy = startY - e.changedTouches[0].clientY;
+      const dx = startX - e.changedTouches[0].clientX;
+      if (Math.abs(dy) > Math.abs(dx) && Math.abs(dy) > 40) { dy > 0 ? this.next() : this.prev(); }
+    });
+  }
+
+  setupWheel() {
+    let t = 0;
+    document.addEventListener('wheel', e => {
+      e.preventDefault();
+      const now = Date.now();
+      if (now - t < 800) return;
+      t = now;
+      e.deltaY > 0 ? this.next() : this.prev();
+    }, { passive: false });
+  }
+
+  next() { if (this.current < this.slides.length - 1) this.goTo(this.current + 1); }
+  prev() { if (this.current > 0) this.goTo(this.current - 1); }
+
+  goTo(i) {
+    this.current = i;
+    this.slides[i].scrollIntoView({ behavior: 'smooth' });
+    this.updateDots();
+    this.updateProgress();
+  }
+
+  updateDots() {
+    Array.from(this.navEl.children).forEach((d, i) => {
+      d.classList.toggle('active', i === this.current);
+    });
+  }
+
+  updateProgress() {
+    const pct = this.slides.length > 1
+      ? (this.current / (this.slides.length - 1)) * 100
+      : 100;
+    this.prog.style.width = pct + '%';
+  }
+}
+
+new SlidePresentation();
+</script>
+</body>
+</html>
